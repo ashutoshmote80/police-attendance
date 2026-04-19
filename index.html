@@ -4,124 +4,66 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LA1 Naigaon Mumbai Hajeri</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/@vladmandic/face-api/dist/face-api.min.js"></script>
     <style>
-        :root {
-            --police-blue: #002e5b;
-            --police-gold: #f1c40f;
-            --success-green: #27ae60;
-            --error-red: #e74c3c;
-            --bg-color: #f4f7f6;
-        }
-
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background-color: var(--bg-color);
-            margin: 0;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-
-        .header {
-            background-color: var(--police-blue);
-            color: white;
-            width: 100%;
-            padding: 20px 0;
-            text-align: center;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
-            border-bottom: 4px solid var(--police-gold);
-            margin-bottom: 30px;
-        }
-
-        .header h1 { margin: 0; font-size: 22px; text-transform: uppercase; letter-spacing: 1px; }
-        .header p { margin: 5px 0 0; font-size: 14px; opacity: 0.9; }
-
-        .container {
-            background: white;
-            width: 90%;
-            max-width: 400px;
-            padding: 25px;
-            border-radius: 15px;
-            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
-            text-align: center;
-        }
-
+        :root { --police-blue: #002e5b; --police-gold: #f1c40f; --success-green: #27ae60; --bg-color: #f4f7f6; }
+        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg-color); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
+        .header { background-color: var(--police-blue); color: white; width: 100%; padding: 20px 0; text-align: center; border-bottom: 4px solid var(--police-gold); margin-bottom: 30px; }
+        .header h1 { margin: 0; font-size: 22px; } .header p { margin: 5px 0 0; font-size: 14px; opacity: 0.9; }
+        .container { background: white; width: 90%; max-width: 400px; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
         .input-group { margin-bottom: 20px; text-align: left; }
-        label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; font-size: 14px; }
-
-        input[type="text"] {
-            width: 100%;
-            padding: 12px;
-            border: 2px solid #ddd;
-            border-radius: 8px;
-            font-size: 16px;
-            box-sizing: border-box;
-            transition: border-color 0.3s;
-        }
-
-        input[type="text"]:focus { border-color: var(--police-blue); outline: none; }
-
-        button {
-            width: 100%;
-            padding: 12px;
-            font-size: 16px;
-            font-weight: bold;
-            border: none;
-            border-radius: 8px;
-            cursor: pointer;
-            transition: transform 0.2s, background 0.3s;
-            margin-top: 10px;
-        }
-
-        button:active { transform: scale(0.98); }
-        .btn-search { background-color: var(--police-blue); color: white; }
-        .btn-reg { background-color: #f39c12; color: white; }
-        .btn-att { background-color: var(--success-green); color: white; }
-
+        label { font-weight: bold; font-size: 14px; }
+        input[type="text"] { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; color: white; }
+        .btn-search { background-color: var(--police-blue); } .btn-reg { background-color: #f39c12; } .btn-att { background-color: var(--success-green); }
         #message { margin-top: 20px; padding: 12px; border-radius: 8px; font-size: 15px; display: none; }
         #attendanceSection { display: none; margin-top: 20px; }
-        .video-wrapper { position: relative; border-radius: 12px; overflow: hidden; border: 3px solid var(--police-blue); background: #000; line-height: 0; }
-        #video { width: 100%; height: auto; }
-        #locationData { background: #eef2f3; padding: 10px; border-radius: 8px; margin-top: 15px; font-size: 13px; color: #555; font-weight: bold; }
-        .footer-text { margin-top: 30px; font-size: 12px; color: #888; }
+        #video { width: 100%; border-radius: 12px; border: 3px solid var(--police-blue); }
+        #locationData { background: #eef2f3; padding: 10px; border-radius: 8px; margin-top: 15px; font-size: 13px; font-weight: bold; }
+        #aiStatus { color: #f39c12; font-size: 12px; margin-top: 5px; font-weight: bold; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <h1>LA1 Naigaon Mumbai</h1>
-        <p>महाराष्ट्र पोलीस (हजेरी प्रणाली)</p>
+        <p>AI फेशियल रेकग्निशन प्रणाली</p>
     </div>
 
     <div class="container">
+        <div id="aiStatus">🤖 AI मॉडेल्स लोड होत आहेत... कृपया थांबा.</div>
         <div class="input-group">
             <label>बकल नंबर (Belt No.):</label>
             <input type="text" id="beltNo" placeholder="बकल नंबर टाका">
         </div>
         
-        <button class="btn-search" onclick="checkBelt()">माहिती शोधा</button>
+        <button class="btn-search" id="btnSearch" onclick="checkBelt()" disabled>माहिती शोधा</button>
 
         <div id="message"></div>
 
         <div id="attendanceSection">
-            <div class="video-wrapper">
-                <video id="video" autoplay playsinline muted></video>
-            </div>
-            
+            <video id="video" autoplay playsinline muted></video>
             <button id="btnRegister" class="btn-reg" onclick="registerNewFace()" style="display:none;">चेहरा नोंदणी करा</button>
             <button id="btnAttend" class="btn-att" onclick="takeAttendance()" style="display:none;">हजेरी नोंदवा</button>
-            
             <div id="locationData">📍 लोकेशन शोधत आहे...</div>
         </div>
     </div>
 
-    <p class="footer-text">Security & Surveillance Unit - Mumbai Police</p>
-<script>
+    <script>
         const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyoz258DfJgM5KGa1Il8HGJ79nEmlrszX6dL6npHN4DpLHUL1d0-RpeZoCcY-rT1Htt/exec";
-        // ^^^ वरील लिंक तुमची स्वतःची टाका जी आधी होती.
-
         let userLat = "0", userLon = "0";
+        let savedDescriptor = null;
+
+        // १. AI मॉडेल्स लोड करणे (सर्वात आधी हे होईल)
+        Promise.all([
+            faceapi.nets.ssdMobilenetv1.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'),
+            faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'),
+            faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/')
+        ]).then(() => {
+            document.getElementById('aiStatus').innerText = "✅ AI सिस्टीम तयार आहे!";
+            document.getElementById('aiStatus').style.color = "green";
+            document.getElementById('btnSearch').disabled = false;
+        });
 
         function showMessage(text, color, bgColor) {
             let msgDiv = document.getElementById('message');
@@ -164,8 +106,15 @@
                     document.getElementById('attendanceSection').style.display = "block";
                     startCamera();
                     showMessage("स्वागत आहे, " + data.name, "white", "#27ae60");
-                    document.getElementById('btnAttend').style.display = data.is_registered ? "block" : "none";
-                    document.getElementById('btnRegister').style.display = data.is_registered ? "none" : "block";
+                    
+                    if(data.is_registered) {
+                        document.getElementById('btnAttend').style.display = "block";
+                        document.getElementById('btnRegister').style.display = "none";
+                        savedDescriptor = new Float32Array(JSON.parse(data.descriptor)); // AI डेटा सेव्ह केला
+                    } else {
+                        document.getElementById('btnAttend').style.display = "none";
+                        document.getElementById('btnRegister').style.display = "block";
+                    }
                 } else {
                     showMessage(data.message, "white", "#e74c3c");
                     document.getElementById('attendanceSection').style.display = "none";
@@ -173,21 +122,47 @@
             });
         }
 
-        function registerNewFace() {
-            showMessage("चेहरा रजिस्टर करत आहे...", "blue", "#e3f2fd");
+        // २. AI द्वारे चेहरा नोंदणी
+        async function registerNewFace() {
+            showMessage("AI चेहरा स्कॅन करत आहे... कॅमेऱ्याकडे पहा", "blue", "#e3f2fd");
+            let video = document.getElementById('video');
+            
+            // चेहऱ्याचा फॉर्म्युला काढणे
+            const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+            if(!detection) {
+                return showMessage("चेहरा स्पष्ट दिसत नाही! उजेडात या आणि पुन्हा प्रयत्न करा.", "white", "#e74c3c");
+            }
+            
+            let descString = JSON.stringify(Array.from(detection.descriptor)); // AI डेटा स्ट्रिंगमध्ये बदलला
             let imageData = getPhoto(); 
+
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "register_face", belt_no: document.getElementById('beltNo').value, image: imageData })
+                body: JSON.stringify({ action: "register_face", belt_no: document.getElementById('beltNo').value, image: imageData, descriptor: descString })
             }).then(res => res.json()).then(data => {
                 showMessage(data.message, "white", "#27ae60");
                 document.getElementById('btnRegister').style.display = "none";
                 document.getElementById('btnAttend').style.display = "block";
-            }).catch(e => showMessage("एरर आला. पुन्हा प्रयत्न करा.", "white", "#e74c3c"));
+                savedDescriptor = detection.descriptor;
+            });
         }
 
-        function takeAttendance() {
-            showMessage("चेहरा आणि लोकेशन व्हेरीफाय करत आहे...", "blue", "#e3f2fd");
+        // ३. AI द्वारे हजेरी (Cross Verification)
+        async function takeAttendance() {
+            showMessage("AI चेहरा आणि लोकेशन तपासत आहे...", "blue", "#e3f2fd");
+            let video = document.getElementById('video');
+
+            const liveDetection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+            if(!liveDetection) {
+                return showMessage("चेहरा स्कॅन होऊ शकला नाही! उजेडात उभे राहा.", "white", "#e74c3c");
+            }
+
+            // चेहऱ्याची तुलना करणे (०.५ पेक्षा कमी अंतर म्हणजे योग्य माणूस)
+            const distance = faceapi.euclideanDistance(savedDescriptor, liveDetection.descriptor);
+            if(distance > 0.50) {
+                return showMessage("🚨 चेहरा मॅच झाला नाही! (Proxy Alert)", "white", "#e74c3c");
+            }
+
             let imageData = getPhoto(); 
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -197,9 +172,9 @@
                     showMessage(data.message, "white", "#27ae60");
                     document.getElementById('attendanceSection').style.display = "none";
                 } else {
-                    showMessage(data.message, "white", "#e74c3c"); // लोकेशन किंवा डुप्लिकेट एरर इथे दिसेल
+                    showMessage(data.message, "white", "#e74c3c");
                 }
-            }).catch(e => showMessage("एरर आला. पुन्हा प्रयत्न करा.", "white", "#e74c3c"));
+            });
         }
     </script>
 </body>
