@@ -20,7 +20,7 @@
         #attendanceSection { display: none; margin-top: 20px; }
         #video { width: 100%; border-radius: 12px; border: 3px solid var(--police-blue); }
         #locationData { background: #eef2f3; padding: 10px; border-radius: 8px; margin-top: 15px; font-size: 13px; font-weight: bold; }
-        #aiStatus { color: #f39c12; font-size: 12px; margin-top: 5px; font-weight: bold; }
+        #aiStatus { color: #f39c12; font-size: 13px; margin-top: 5px; font-weight: bold; background: #fff3cd; padding: 5px; border-radius: 5px;}
     </style>
 </head>
 <body>
@@ -31,7 +31,7 @@
     </div>
 
     <div class="container">
-        <div id="aiStatus">🤖 AI मॉडेल्स लोड होत आहेत... कृपया ३० सेकंद थांबा.</div>
+        <div id="aiStatus">🤖 AI मॉडेल्स लोड होत आहेत... (१०-१५ सेकंद थांबा)</div>
         <div class="input-group">
             <label>बकल नंबर (Belt No.):</label>
             <input type="text" id="beltNo" placeholder="बकल नंबर टाका">
@@ -54,22 +54,25 @@
         let userLat = "0", userLon = "0";
         let savedDescriptor = null;
 
-        // फास्ट सर्व्हरची लिंक
-        const MODEL_URL = 'https://unpkg.com/@vladmandic/face-api/model/';
+        // सर्वात फास्ट आणि अधिकृत GitHub लिंक
+        const MODEL_URL = 'https://vladmandic.github.io/face-api/model/';
 
-        // AI मॉडेल्स लोड करणे
         Promise.all([
             faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
             faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
             faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]).then(() => {
-            document.getElementById('aiStatus').innerText = "✅ AI सिस्टीम तयार आहे!";
-            document.getElementById('aiStatus').style.color = "green";
+            let statusDiv = document.getElementById('aiStatus');
+            statusDiv.innerText = "✅ AI सिस्टीम तयार आहे!";
+            statusDiv.style.color = "green";
+            statusDiv.style.background = "#d4edda";
             document.getElementById('btnSearch').disabled = false;
         }).catch(err => {
             console.error(err);
-            document.getElementById('aiStatus').innerText = "❌ इंटरनेट स्लो असल्यामुळे AI लोड झाले नाही. पेज रिफ्रेश करा.";
-            document.getElementById('aiStatus').style.color = "red";
+            let statusDiv = document.getElementById('aiStatus');
+            statusDiv.innerText = "❌ इंटरनेट कनेक्शन तपासा आणि पेज रिफ्रेश करा.";
+            statusDiv.style.color = "red";
+            statusDiv.style.background = "#f8d7da";
         });
 
         function showMessage(text, color, bgColor) {
@@ -120,7 +123,6 @@
                     if(data.is_registered) {
                         document.getElementById('btnAttend').style.display = "block";
                         document.getElementById('btnRegister').style.display = "none";
-                        // जुना AI डेटा वाचणे
                         if(data.descriptor) {
                             savedDescriptor = new Float32Array(JSON.parse(data.descriptor)); 
                         }
@@ -179,7 +181,7 @@
                 }
 
                 const distance = faceapi.euclideanDistance(savedDescriptor, liveDetection.descriptor);
-                if(distance > 0.45) { // ०.४५ पेक्षा जास्त अंतर म्हणजे दुसरीच व्यक्ती
+                if(distance > 0.45) { 
                     return showMessage("🚨 चेहरा मॅच झाला नाही! (Proxy Alert)", "white", "#e74c3c");
                 }
 
