@@ -31,7 +31,7 @@
     </div>
 
     <div class="container">
-        <div id="aiStatus">🤖 AI मॉडेल्स लोड होत आहेत... कृपया थांबा.</div>
+        <div id="aiStatus">🤖 AI मॉडेल्स लोड होत आहेत... कृपया ३० सेकंद थांबा.</div>
         <div class="input-group">
             <label>बकल नंबर (Belt No.):</label>
             <input type="text" id="beltNo" placeholder="बकल नंबर टाका">
@@ -54,15 +54,22 @@
         let userLat = "0", userLon = "0";
         let savedDescriptor = null;
 
-        // १. AI मॉडेल्स लोड करणे (सर्वात आधी हे होईल)
+        // फास्ट सर्व्हरची लिंक
+        const MODEL_URL = 'https://unpkg.com/@vladmandic/face-api/model/';
+
+        // AI मॉडेल्स लोड करणे
         Promise.all([
-            faceapi.nets.ssdMobilenetv1.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'),
-            faceapi.nets.faceLandmark68Net.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/'),
-            faceapi.nets.faceRecognitionNet.loadFromUri('https://cdn.jsdelivr.net/npm/@vladmandic/face-api/model/')
+            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]).then(() => {
             document.getElementById('aiStatus').innerText = "✅ AI सिस्टीम तयार आहे!";
             document.getElementById('aiStatus').style.color = "green";
             document.getElementById('btnSearch').disabled = false;
+        }).catch(err => {
+            console.error(err);
+            document.getElementById('aiStatus').innerText = "❌ इंटरनेट स्लो असल्यामुळे AI लोड झाले नाही. पेज रिफ्रेश करा.";
+            document.getElementById('aiStatus').style.color = "red";
         });
 
         function showMessage(text, color, bgColor) {
@@ -81,7 +88,10 @@
                     userLat = pos.coords.latitude; userLon = pos.coords.longitude;
                     document.getElementById('locationData').innerText = "📍 लोकेशन प्राप्त झाले!";
                     document.getElementById('locationData').style.color = "green";
-                }, () => { document.getElementById('locationData').innerText = "📍 GPS चालू करा!"; });
+                }, () => { 
+                    document.getElementById('locationData').innerText = "📍 GPS चालू करा!"; 
+                    document.getElementById('locationData').style.color = "red";
+                });
             }
         }
 
@@ -110,7 +120,10 @@
                     if(data.is_registered) {
                         document.getElementById('btnAttend').style.display = "block";
                         document.getElementById('btnRegister').style.display = "none";
-                        savedDescriptor = new Float32Array(JSON.parse(data.descriptor)); // AI डेटा सेव्ह केला
+                        // जुना AI डेटा वाचणे
+                        if(data.descriptor) {
+                            savedDescriptor = new Float32Array(JSON.parse(data.descriptor)); 
+                        }
                     } else {
                         document.getElementById('btnAttend').style.display = "none";
                         document.getElementById('btnRegister').style.display = "block";
@@ -119,62 +132,72 @@
                     showMessage(data.message, "white", "#e74c3c");
                     document.getElementById('attendanceSection').style.display = "none";
                 }
+            }).catch(e => {
+                showMessage("नेटवर्क एरर! पुन्हा प्रयत्न करा.", "white", "#e74c3c");
             });
         }
 
-        // २. AI द्वारे चेहरा नोंदणी
         async function registerNewFace() {
-            showMessage("AI चेहरा स्कॅन करत आहे... कॅमेऱ्याकडे पहा", "blue", "#e3f2fd");
+            showMessage("AI चेहरा स्कॅन करत आहे... कॅमेऱ्याकडे स्थिर पहा", "blue", "#e3f2fd");
             let video = document.getElementById('video');
             
-            // चेहऱ्याचा फॉर्म्युला काढणे
-            const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-            if(!detection) {
-                return showMessage("चेहरा स्पष्ट दिसत नाही! उजेडात या आणि पुन्हा प्रयत्न करा.", "white", "#e74c3c");
-            }
-            
-            let descString = JSON.stringify(Array.from(detection.descriptor)); // AI डेटा स्ट्रिंगमध्ये बदलला
-            let imageData = getPhoto(); 
+            try {
+                const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+                if(!detection) {
+                    return showMessage("चेहरा स्पष्ट दिसत नाही! थोड्या उजेडात या.", "white", "#e74c3c");
+                }
+                
+                let descString = JSON.stringify(Array.from(detection.descriptor)); 
+                let imageData = getPhoto(); 
 
-            fetch(GOOGLE_SHEET_URL, {
-                method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "register_face", belt_no: document.getElementById('beltNo').value, image: imageData, descriptor: descString })
-            }).then(res => res.json()).then(data => {
-                showMessage(data.message, "white", "#27ae60");
-                document.getElementById('btnRegister').style.display = "none";
-                document.getElementById('btnAttend').style.display = "block";
-                savedDescriptor = detection.descriptor;
-            });
+                fetch(GOOGLE_SHEET_URL, {
+                    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "register_face", belt_no: document.getElementById('beltNo').value, image: imageData, descriptor: descString })
+                }).then(res => res.json()).then(data => {
+                    showMessage(data.message, "white", "#27ae60");
+                    document.getElementById('btnRegister').style.display = "none";
+                    document.getElementById('btnAttend').style.display = "block";
+                    savedDescriptor = detection.descriptor;
+                });
+            } catch (err) {
+                showMessage("AI स्कॅनिंगमध्ये एरर आला.", "white", "#e74c3c");
+            }
         }
 
-        // ३. AI द्वारे हजेरी (Cross Verification)
         async function takeAttendance() {
-            showMessage("AI चेहरा आणि लोकेशन तपासत आहे...", "blue", "#e3f2fd");
+            showMessage("AI चेहरा आणि लोकेशन तपासत आहे... कॅमेऱ्याकडे पहा", "blue", "#e3f2fd");
             let video = document.getElementById('video');
 
-            const liveDetection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-            if(!liveDetection) {
-                return showMessage("चेहरा स्कॅन होऊ शकला नाही! उजेडात उभे राहा.", "white", "#e74c3c");
-            }
-
-            // चेहऱ्याची तुलना करणे (०.५ पेक्षा कमी अंतर म्हणजे योग्य माणूस)
-            const distance = faceapi.euclideanDistance(savedDescriptor, liveDetection.descriptor);
-            if(distance > 0.50) {
-                return showMessage("🚨 चेहरा मॅच झाला नाही! (Proxy Alert)", "white", "#e74c3c");
-            }
-
-            let imageData = getPhoto(); 
-            fetch(GOOGLE_SHEET_URL, {
-                method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "mark_attendance", belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon, image: imageData })
-            }).then(res => res.json()).then(data => {
-                if(data.status === 'success'){
-                    showMessage(data.message, "white", "#27ae60");
-                    document.getElementById('attendanceSection').style.display = "none";
-                } else {
-                    showMessage(data.message, "white", "#e74c3c");
+            try {
+                if(!savedDescriptor) {
+                    return showMessage("तुमचा जुना AI डेटा मिळाला नाही. कृपया पुन्हा नोंदणी करा.", "white", "#e74c3c");
                 }
-            });
+
+                const liveDetection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
+                if(!liveDetection) {
+                    return showMessage("चेहरा स्कॅन होऊ शकला नाही! उजेडात उभे राहा.", "white", "#e74c3c");
+                }
+
+                const distance = faceapi.euclideanDistance(savedDescriptor, liveDetection.descriptor);
+                if(distance > 0.45) { // ०.४५ पेक्षा जास्त अंतर म्हणजे दुसरीच व्यक्ती
+                    return showMessage("🚨 चेहरा मॅच झाला नाही! (Proxy Alert)", "white", "#e74c3c");
+                }
+
+                let imageData = getPhoto(); 
+                fetch(GOOGLE_SHEET_URL, {
+                    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                    body: JSON.stringify({ action: "mark_attendance", belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon, image: imageData })
+                }).then(res => res.json()).then(data => {
+                    if(data.status === 'success'){
+                        showMessage(data.message, "white", "#27ae60");
+                        document.getElementById('attendanceSection').style.display = "none";
+                    } else {
+                        showMessage(data.message, "white", "#e74c3c");
+                    }
+                });
+            } catch (err) {
+                showMessage("चेहरा तपासण्यात तांत्रिक अडचण आली.", "white", "#e74c3c");
+            }
         }
     </script>
 </body>
