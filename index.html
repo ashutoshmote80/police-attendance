@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LA1 Naigaon Mumbai Hajeri</title> 
+    <title>LA1 Naigaon Mumbai Hajeri</title>
     <style>
         :root {
             --police-blue: #002e5b;
@@ -108,16 +108,18 @@
             <div class="video-wrapper">
                 <video id="video" autoplay playsinline muted></video>
             </div>
-            <button id="btnRegister" class="btn-reg" style="display:none;">चेहरा नोंदणी करा (लवकरच येत आहे)</button>
-            <button id="btnAttend" class="btn-att" style="display:none;">हजेरी नोंदवा (लवकरच येत आहे)</button>
+            
+            <button id="btnRegister" class="btn-reg" onclick="registerNewFace()" style="display:none;">चेहरा नोंदणी करा</button>
+            <button id="btnAttend" class="btn-att" onclick="takeAttendance()" style="display:none;">हजेरी नोंदवा</button>
+            
             <div id="locationData">📍 लोकेशन शोधत आहे...</div>
         </div>
     </div>
 
     <p class="footer-text">Security & Surveillance Unit - Mumbai Police</p>
 
-  <script>
-        // तुमची लिंक
+    <script>
+        // तुमची Google Sheet API लिंक
         const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyoz258DfJgM5KGa1Il8HGJ79nEmlrszX6dL6npHN4DpLHUL1d0-RpeZoCcY-rT1Htt/exec";
         let userLat = "0", userLon = "0";
 
@@ -160,6 +162,8 @@
                     showMessage(data.message, "white", "#e74c3c");
                     document.getElementById('attendanceSection').style.display = "none";
                 }
+            }).catch(e => {
+                showMessage("नेटवर्क एरर! पुन्हा प्रयत्न करा.", "white", "#e74c3c");
             });
         }
 
@@ -169,7 +173,7 @@
             let canvas = document.createElement('canvas');
             canvas.width = video.videoWidth; canvas.height = video.videoHeight;
             canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-            let imageData = canvas.toDataURL('image/jpeg'); // फोटो काढला
+            let imageData = canvas.toDataURL('image/jpeg'); 
 
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
@@ -178,7 +182,7 @@
                 showMessage(data.message, "white", "#27ae60");
                 document.getElementById('btnRegister').style.display = "none";
                 document.getElementById('btnAttend').style.display = "block";
-            });
+            }).catch(e => showMessage("एरर आला. पुन्हा प्रयत्न करा.", "white", "#e74c3c"));
         }
 
         function takeAttendance() {
@@ -189,6 +193,8 @@
             }).then(res => res.json()).then(data => {
                 showMessage(data.message, "white", "#27ae60");
                 document.getElementById('attendanceSection').style.display = "none";
-            });
+            }).catch(e => showMessage("एरर आला. पुन्हा प्रयत्न करा.", "white", "#e74c3c"));
         }
     </script>
+</body>
+</html>
