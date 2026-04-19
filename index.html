@@ -3,112 +3,107 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LA1 Naigaon Mumbai Hajeri</title>
+    <title>LA1 Naigaon Security Hajeri</title>
     <style>
-        :root { --police-blue: #002e5b; --police-gold: #f1c40f; --success-green: #27ae60; --bg-color: #f4f7f6; }
-        body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg-color); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-        .header { background-color: var(--police-blue); color: white; width: 100%; padding: 20px 0; text-align: center; border-bottom: 4px solid var(--police-gold); margin-bottom: 30px; }
-        .header h1 { margin: 0; font-size: 22px; }
-        .container { background: white; width: 90%; max-width: 400px; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
-        input[type="text"] { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 15px; }
-        button { width: 100%; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; color: white; }
-        .btn-search { background-color: var(--police-blue); }
-        .btn-action { background-color: var(--success-green); margin-top: 15px; }
-        #message { margin-top: 20px; padding: 12px; border-radius: 8px; display: none; font-weight: bold; }
-        #video { width: 100%; border-radius: 12px; border: 3px solid var(--police-blue); margin-top: 15px; display: none; }
-        #locationBox { background: #eef2f3; padding: 10px; border-radius: 8px; margin-top: 15px; font-size: 13px; font-weight: bold; display: none; }
+        :root { --p-blue: #002e5b; --p-gold: #f1c40f; --p-green: #27ae60; --p-red: #e74c3c; }
+        body { font-family: sans-serif; background: #f4f7f6; margin: 0; display: flex; flex-direction: column; align-items: center; }
+        .header { background: var(--p-blue); color: white; width: 100%; padding: 15px 0; text-align: center; border-bottom: 4px solid var(--p-gold); }
+        .container { background: white; width: 90%; max-width: 400px; padding: 20px; border-radius: 15px; margin-top: 20px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; margin-top: 10px; }
+        .btn-search { background: var(--p-blue); }
+        .btn-reg { background: #f39c12; }
+        .btn-att { background: var(--p-green); }
+        #message { padding: 10px; border-radius: 8px; margin-top: 10px; display: none; font-size: 14px; }
+        #video { width: 100%; border-radius: 10px; margin-top: 15px; display: none; transform: scaleX(-1); }
+        #location { font-size: 12px; margin-top: 10px; font-weight: bold; }
     </style>
 </head>
 <body>
 
-    <div class="header">
-        <h1>LA1 Naigaon Mumbai</h1>
-        <p>पोलीस हजेरी प्रणाली (फोटो पुरावा)</p>
-    </div>
+<div class="header">
+    <h2>LA1 Naigaon Mumbai</h2>
+    <p>स्मार्ट हजेरी व पडताळणी प्रणाली</p>
+</div>
 
-    <div class="container">
-        <input type="text" id="beltNo" placeholder="बकल नंबर टाका">
-        <button class="btn-search" onclick="checkBelt()">माहिती शोधा</button>
+<div class="container">
+    <input type="text" id="beltNo" placeholder="बकल नंबर टाका">
+    <button class="btn-search" onclick="verifyUser()">ओळख पटवा</button>
+    
+    <div id="message"></div>
+    <video id="video" autoplay playsinline muted></video>
+    <div id="location"></div>
+    
+    <button id="btnReg" class="btn-reg" style="display:none;" onclick="action('register_face')">पहिल्यांदा चेहरा नोंदणी करा</button>
+    <button id="btnAtt" class="btn-att" style="display:none;" onclick="action('mark_attendance')">हजेरी नोंदवा (पडताळणीसह)</button>
+</div>
 
-        <div id="message"></div>
-        <video id="video" autoplay playsinline muted></video>
-        <div id="locationBox">📍 लोकेशन तपासत आहे...</div>
-        <button id="btnSubmit" class="btn-action" style="display:none;" onclick="submitAttendance()">हजेरी नोंदवा (फोटोसह)</button>
-    </div>
+<script>
+    const URL = "https://script.google.com/macros/s/AKfycbyoz258DfJgM5KGa1Il8HGJ79nEmlrszX6dL6npHN4DpLHUL1d0-RpeZoCcY-rT1Htt/exec";
+    let lat, lon;
 
-    <script>
-        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyoz258DfJgM5KGa1Il8HGJ79nEmlrszX6dL6npHN4DpLHUL1d0-RpeZoCcY-rT1Htt/exec";
-        let userLat = "0", userLon = "0";
+    function msg(t, c, b) {
+        let m = document.getElementById('message');
+        m.style.display="block"; m.innerText=t; m.style.color=c; m.style.backgroundColor=b;
+    }
 
-        function showMessage(text, color, bgColor) {
-            let msg = document.getElementById('message');
-            msg.style.display = "block"; msg.innerText = text;
-            msg.style.color = color; msg.style.backgroundColor = bgColor;
-        }
+    function verifyUser() {
+        let b = document.getElementById('beltNo').value;
+        if(!b) return alert("बकल नंबर टाका");
+        msg("तपासत आहे...", "black", "#eee");
 
-        function checkBelt() {
-            let belt = document.getElementById('beltNo').value;
-            if(!belt) return alert("बकल नंबर टाका");
-            
-            showMessage("तपासत आहे...", "#000", "#eee");
-
-            fetch(GOOGLE_SHEET_URL, {
-                method: 'POST',
-                body: JSON.stringify({ action: "verify_belt", belt_no: belt })
-            }).then(res => res.json()).then(data => {
-                if(data.status === 'success') {
-                    showMessage("स्वागत आहे, " + data.name, "white", "#27ae60");
-                    startSystem();
+        fetch(URL, { method: 'POST', body: JSON.stringify({action:"verify_belt", belt_no:b}) })
+        .then(r => r.json()).then(d => {
+            if(d.status === 'success') {
+                msg("स्वागत आहे, " + d.name, "white", "#27ae60");
+                startCam();
+                // जर रजिस्टर नसेल तर फक्त रजिस्ट्रेशन बटण दाखवा
+                if(!d.is_registered) {
+                    document.getElementById('btnReg').style.display="block";
+                    document.getElementById('btnAtt').style.display="none";
                 } else {
-                    showMessage(data.message, "white", "#e74c3c");
+                    document.getElementById('btnReg').style.display="none";
+                    document.getElementById('btnAtt').style.display="block";
                 }
-            });
-        }
+            } else { msg(d.message, "white", "#e74c3c"); }
+        });
+    }
 
-        function startSystem() {
-            document.getElementById('video').style.display = "block";
-            document.getElementById('locationBox').style.display = "block";
-            document.getElementById('btnSubmit').style.display = "block";
-            
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-                .then(stream => { document.getElementById('video').srcObject = stream; });
+    function startCam() {
+        document.getElementById('video').style.display="block";
+        navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}})
+        .then(s => { document.getElementById('video').srcObject=s; });
+        
+        navigator.geolocation.getCurrentPosition(p => {
+            lat = p.coords.latitude; lon = p.coords.longitude;
+            document.getElementById('location').innerText="📍 लोकेशन प्राप्त झाले";
+        });
+    }
 
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition(pos => {
-                    userLat = pos.coords.latitude; userLon = pos.coords.longitude;
-                    document.getElementById('locationBox').innerText = "📍 लोकेशन प्राप्त झाले!";
-                    document.getElementById('locationBox').style.color = "green";
-                });
-            }
-        }
+    function action(actType) {
+        let v = document.getElementById('video');
+        let c = document.createElement('canvas');
+        c.width=v.videoWidth; c.height=v.videoHeight;
+        c.getContext('2d').drawImage(v, 0, 0);
+        let img = c.toDataURL('image/jpeg');
 
-        function submitAttendance() {
-            let video = document.getElementById('video');
-            let canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-            let photo = canvas.toDataURL('image/jpeg');
+        msg(actType==='register_face' ? "चेहरा नोंदवत आहे..." : "ओळख पडताळत आहे...", "black", "#fff3cd");
 
-            showMessage("हजेरी आणि फोटो पाठवत आहे...", "#000", "#fff3cd");
-
-            fetch(GOOGLE_SHEET_URL, {
-                method: 'POST',
-                body: JSON.stringify({
-                    action: "mark_attendance",
-                    belt_no: document.getElementById('beltNo').value,
-                    lat: userLat, lon: userLon,
-                    image: photo
-                })
-            }).then(res => res.json()).then(data => {
-                if(data.status === 'success') {
-                    showMessage(data.message, "white", "#27ae60");
-                    document.getElementById('video').style.display = "none";
-                    document.getElementById('btnSubmit').style.display = "none";
-                } else {
-                    showMessage(data.message, "white", "#e74c3c");
-                }
-            });
-        }
-    </script>
+        fetch(URL, {
+            method: 'POST',
+            body: JSON.stringify({
+                action: actType,
+                belt_no: document.getElementById('beltNo').value,
+                image: img,
+                lat: lat, lon: lon
+            })
+        }).then(r => r.json()).then(d => {
+            if(d.status === 'success') {
+                msg(d.message, "white", "#27ae60");
+                if(actType==='register_face') verifyUser(); // पुन्हा चेक करा म्हणजे हजेरी बटण येईल
+            } else { msg(d.message, "white", "#e74c3c"); }
+        });
+    }
+</script>
 </body>
 </html>
