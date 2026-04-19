@@ -4,201 +4,110 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LA1 Naigaon Mumbai Hajeri</title>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         :root { --police-blue: #002e5b; --police-gold: #f1c40f; --success-green: #27ae60; --bg-color: #f4f7f6; }
         body { font-family: 'Segoe UI', Tahoma, sans-serif; background-color: var(--bg-color); margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
         .header { background-color: var(--police-blue); color: white; width: 100%; padding: 20px 0; text-align: center; border-bottom: 4px solid var(--police-gold); margin-bottom: 30px; }
-        .header h1 { margin: 0; font-size: 22px; } .header p { margin: 5px 0 0; font-size: 14px; opacity: 0.9; }
+        .header h1 { margin: 0; font-size: 22px; }
         .container { background: white; width: 90%; max-width: 400px; padding: 25px; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.05); text-align: center; }
-        .input-group { margin-bottom: 20px; text-align: left; }
-        label { font-weight: bold; font-size: 14px; }
-        input[type="text"] { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; margin-top: 10px; color: white; }
-        .btn-search { background-color: var(--police-blue); } .btn-reg { background-color: #f39c12; } .btn-att { background-color: var(--success-green); }
-        #message { margin-top: 20px; padding: 12px; border-radius: 8px; font-size: 15px; display: none; }
-        #attendanceSection { display: none; margin-top: 20px; }
-        #video { width: 100%; border-radius: 12px; border: 3px solid var(--police-blue); }
-        #locationData { background: #eef2f3; padding: 10px; border-radius: 8px; margin-top: 15px; font-size: 13px; font-weight: bold; }
-        #aiStatus { color: #856404; font-size: 13px; margin-top: 5px; font-weight: bold; background: #fff3cd; padding: 8px; border-radius: 5px; word-wrap: break-word;}
+        input[type="text"] { width: 100%; padding: 12px; border: 2px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; margin-bottom: 15px; }
+        button { width: 100%; padding: 12px; font-size: 16px; font-weight: bold; border: none; border-radius: 8px; cursor: pointer; color: white; }
+        .btn-search { background-color: var(--police-blue); }
+        .btn-action { background-color: var(--success-green); margin-top: 15px; }
+        #message { margin-top: 20px; padding: 12px; border-radius: 8px; display: none; font-weight: bold; }
+        #video { width: 100%; border-radius: 12px; border: 3px solid var(--police-blue); margin-top: 15px; display: none; }
+        #locationBox { background: #eef2f3; padding: 10px; border-radius: 8px; margin-top: 15px; font-size: 13px; font-weight: bold; display: none; }
     </style>
 </head>
 <body>
 
     <div class="header">
         <h1>LA1 Naigaon Mumbai</h1>
-        <p>AI फेशियल रेकग्निशन प्रणाली</p>
+        <p>पोलीस हजेरी प्रणाली (फोटो पुरावा)</p>
     </div>
 
     <div class="container">
-        <div id="aiStatus">🤖 AI सिस्टीम चालू होत आहे... कृपया १० सेकंद थांबा.</div>
-        <div class="input-group">
-            <label>बकल नंबर (Belt No.):</label>
-            <input type="text" id="beltNo" placeholder="बकल नंबर टाका">
-        </div>
-        
-        <button class="btn-search" id="btnSearch" onclick="checkBelt()" disabled>माहिती शोधा</button>
+        <input type="text" id="beltNo" placeholder="बकल नंबर टाका">
+        <button class="btn-search" onclick="checkBelt()">माहिती शोधा</button>
 
         <div id="message"></div>
-
-        <div id="attendanceSection">
-            <video id="video" autoplay playsinline muted></video>
-            <button id="btnRegister" class="btn-reg" onclick="registerNewFace()" style="display:none;">चेहरा नोंदणी करा</button>
-            <button id="btnAttend" class="btn-att" onclick="takeAttendance()" style="display:none;">हजेरी नोंदवा</button>
-            <div id="locationData">📍 लोकेशन शोधत आहे...</div>
-        </div>
+        <video id="video" autoplay playsinline muted></video>
+        <div id="locationBox">📍 लोकेशन तपासत आहे...</div>
+        <button id="btnSubmit" class="btn-action" style="display:none;" onclick="submitAttendance()">हजेरी नोंदवा (फोटोसह)</button>
     </div>
 
     <script>
         const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyoz258DfJgM5KGa1Il8HGJ79nEmlrszX6dL6npHN4DpLHUL1d0-RpeZoCcY-rT1Htt/exec";
         let userLat = "0", userLon = "0";
-        let savedDescriptor = null;
-
-        // १. १००% अचूक आणि फास्ट लिंक (शेवटी / दिला आहे)
-        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
-
-        Promise.all([
-            faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]).then(() => {
-            let statusDiv = document.getElementById('aiStatus');
-            statusDiv.innerText = "✅ AI सिस्टीम तयार आहे!";
-            statusDiv.style.color = "#155724";
-            statusDiv.style.background = "#d4edda";
-            document.getElementById('btnSearch').disabled = false;
-        }).catch(err => {
-            let statusDiv = document.getElementById('aiStatus');
-            statusDiv.innerText = "❌ एरर: " + err.message; // आता नेमका एरर दिसेल
-            statusDiv.style.color = "#721c24";
-            statusDiv.style.background = "#f8d7da";
-        });
 
         function showMessage(text, color, bgColor) {
-            let msgDiv = document.getElementById('message');
-            msgDiv.style.display = "block"; msgDiv.innerText = text;
-            msgDiv.style.color = color; msgDiv.style.backgroundColor = bgColor;
-        }
-
-        function startCamera() {
-            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
-                .then(stream => { document.getElementById('video').srcObject = stream; })
-                .catch(err => alert("कॅमेरा चालू करता आला नाही."));
-            
-            if (navigator.geolocation) {
-                navigator.geolocation.getCurrentPosition((pos) => {
-                    userLat = pos.coords.latitude; userLon = pos.coords.longitude;
-                    document.getElementById('locationData').innerText = "📍 लोकेशन प्राप्त झाले!";
-                    document.getElementById('locationData').style.color = "green";
-                }, () => { 
-                    document.getElementById('locationData').innerText = "📍 GPS चालू करा!"; 
-                    document.getElementById('locationData').style.color = "red";
-                });
-            }
-        }
-
-        function getPhoto() {
-            let video = document.getElementById('video');
-            let canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-            return canvas.toDataURL('image/jpeg');
+            let msg = document.getElementById('message');
+            msg.style.display = "block"; msg.innerText = text;
+            msg.style.color = color; msg.style.backgroundColor = bgColor;
         }
 
         function checkBelt() {
             let belt = document.getElementById('beltNo').value;
-            if(!belt) return alert("कृपया बकल नंबर टाका");
-            showMessage("डेटाबेस तपासत आहे...", "blue", "#e3f2fd");
+            if(!belt) return alert("बकल नंबर टाका");
+            
+            showMessage("तपासत आहे...", "#000", "#eee");
 
             fetch(GOOGLE_SHEET_URL, {
-                method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                method: 'POST',
                 body: JSON.stringify({ action: "verify_belt", belt_no: belt })
             }).then(res => res.json()).then(data => {
                 if(data.status === 'success') {
-                    document.getElementById('attendanceSection').style.display = "block";
-                    startCamera();
                     showMessage("स्वागत आहे, " + data.name, "white", "#27ae60");
-                    
-                    if(data.is_registered) {
-                        document.getElementById('btnAttend').style.display = "block";
-                        document.getElementById('btnRegister').style.display = "none";
-                        if(data.descriptor) {
-                            savedDescriptor = new Float32Array(JSON.parse(data.descriptor)); 
-                        }
-                    } else {
-                        document.getElementById('btnAttend').style.display = "none";
-                        document.getElementById('btnRegister').style.display = "block";
-                    }
+                    startSystem();
                 } else {
                     showMessage(data.message, "white", "#e74c3c");
-                    document.getElementById('attendanceSection').style.display = "none";
                 }
-            }).catch(e => {
-                showMessage("नेटवर्क एरर! पुन्हा प्रयत्न करा.", "white", "#e74c3c");
             });
         }
 
-        async function registerNewFace() {
-            showMessage("AI चेहरा स्कॅन करत आहे... कॅमेऱ्याकडे स्थिर पहा", "blue", "#e3f2fd");
-            let video = document.getElementById('video');
+        function startSystem() {
+            document.getElementById('video').style.display = "block";
+            document.getElementById('locationBox').style.display = "block";
+            document.getElementById('btnSubmit').style.display = "block";
             
-            try {
-                const detection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-                if(!detection) {
-                    return showMessage("चेहरा स्पष्ट दिसत नाही! थोड्या उजेडात या.", "white", "#e74c3c");
-                }
-                
-                let descString = JSON.stringify(Array.from(detection.descriptor)); 
-                let imageData = getPhoto(); 
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+                .then(stream => { document.getElementById('video').srcObject = stream; });
 
-                fetch(GOOGLE_SHEET_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: "register_face", belt_no: document.getElementById('beltNo').value, image: imageData, descriptor: descString })
-                }).then(res => res.json()).then(data => {
-                    showMessage(data.message, "white", "#27ae60");
-                    document.getElementById('btnRegister').style.display = "none";
-                    document.getElementById('btnAttend').style.display = "block";
-                    savedDescriptor = detection.descriptor;
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    userLat = pos.coords.latitude; userLon = pos.coords.longitude;
+                    document.getElementById('locationBox').innerText = "📍 लोकेशन प्राप्त झाले!";
+                    document.getElementById('locationBox').style.color = "green";
                 });
-            } catch (err) {
-                showMessage("AI स्कॅनिंगमध्ये एरर आला.", "white", "#e74c3c");
             }
         }
 
-        async function takeAttendance() {
-            showMessage("AI चेहरा आणि लोकेशन तपासत आहे... कॅमेऱ्याकडे पहा", "blue", "#e3f2fd");
+        function submitAttendance() {
             let video = document.getElementById('video');
+            let canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            let photo = canvas.toDataURL('image/jpeg');
 
-            try {
-                if(!savedDescriptor) {
-                    return showMessage("तुमचा जुना AI डेटा मिळाला नाही. कृपया पुन्हा नोंदणी करा.", "white", "#e74c3c");
+            showMessage("हजेरी आणि फोटो पाठवत आहे...", "#000", "#fff3cd");
+
+            fetch(GOOGLE_SHEET_URL, {
+                method: 'POST',
+                body: JSON.stringify({
+                    action: "mark_attendance",
+                    belt_no: document.getElementById('beltNo').value,
+                    lat: userLat, lon: userLon,
+                    image: photo
+                })
+            }).then(res => res.json()).then(data => {
+                if(data.status === 'success') {
+                    showMessage(data.message, "white", "#27ae60");
+                    document.getElementById('video').style.display = "none";
+                    document.getElementById('btnSubmit').style.display = "none";
+                } else {
+                    showMessage(data.message, "white", "#e74c3c");
                 }
-
-                const liveDetection = await faceapi.detectSingleFace(video).withFaceLandmarks().withFaceDescriptor();
-                if(!liveDetection) {
-                    return showMessage("चेहरा स्कॅन होऊ शकला नाही! उजेडात उभे राहा.", "white", "#e74c3c");
-                }
-
-                const distance = faceapi.euclideanDistance(savedDescriptor, liveDetection.descriptor);
-                if(distance > 0.45) { 
-                    return showMessage("🚨 चेहरा मॅच झाला नाही! (Proxy Alert)", "white", "#e74c3c");
-                }
-
-                let imageData = getPhoto(); 
-                fetch(GOOGLE_SHEET_URL, {
-                    method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                    body: JSON.stringify({ action: "mark_attendance", belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon, image: imageData })
-                }).then(res => res.json()).then(data => {
-                    if(data.status === 'success'){
-                        showMessage(data.message, "white", "#27ae60");
-                        document.getElementById('attendanceSection').style.display = "none";
-                    } else {
-                        showMessage(data.message, "white", "#e74c3c");
-                    }
-                });
-            } catch (err) {
-                showMessage("चेहरा तपासण्यात तांत्रिक अडचण आली.", "white", "#e74c3c");
-            }
+            });
         }
     </script>
 </body>
