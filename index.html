@@ -20,7 +20,7 @@
         #attendanceSection { display: none; margin-top: 20px; }
         #video { width: 100%; border-radius: 12px; border: 3px solid var(--police-blue); }
         #locationData { background: #eef2f3; padding: 10px; border-radius: 8px; margin-top: 15px; font-size: 13px; font-weight: bold; }
-        #aiStatus { color: #856404; font-size: 13px; margin-top: 5px; font-weight: bold; background: #fff3cd; padding: 8px; border-radius: 5px;}
+        #aiStatus { color: #856404; font-size: 13px; margin-top: 5px; font-weight: bold; background: #fff3cd; padding: 8px; border-radius: 5px; word-wrap: break-word;}
     </style>
 </head>
 <body>
@@ -31,7 +31,7 @@
     </div>
 
     <div class="container">
-        <div id="aiStatus">🤖 AI सिस्टीम चालू होत आहे... कृपया थांबा.</div>
+        <div id="aiStatus">🤖 AI सिस्टीम चालू होत आहे... कृपया १० सेकंद थांबा.</div>
         <div class="input-group">
             <label>बकल नंबर (Belt No.):</label>
             <input type="text" id="beltNo" placeholder="बकल नंबर टाका">
@@ -54,8 +54,8 @@
         let userLat = "0", userLon = "0";
         let savedDescriptor = null;
 
-        // मूळ निर्मात्याची कधीही ब्लॉक न होणारी लिंक
-        const MODEL_URL = 'https://justadudewhohacks.github.io/face-api.js/models';
+        // १. १००% अचूक आणि फास्ट लिंक (शेवटी / दिला आहे)
+        const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
 
         Promise.all([
             faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
@@ -68,9 +68,8 @@
             statusDiv.style.background = "#d4edda";
             document.getElementById('btnSearch').disabled = false;
         }).catch(err => {
-            console.error(err);
             let statusDiv = document.getElementById('aiStatus');
-            statusDiv.innerText = "❌ सर्व्हर ब्लॉक झाला आहे. कृपया मोबाईलचे नेटवर्क बदला.";
+            statusDiv.innerText = "❌ एरर: " + err.message; // आता नेमका एरर दिसेल
             statusDiv.style.color = "#721c24";
             statusDiv.style.background = "#f8d7da";
         });
