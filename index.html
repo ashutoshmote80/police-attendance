@@ -3,105 +3,130 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LA1 Naigaon Security Hajeri</title>
+    <title>LA1 Naigaon - Secure Attendance</title>
+    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
-        :root { --p-blue: #002e5b; --p-gold: #f1c40f; --p-green: #27ae60; --p-red: #e74c3c; }
+        :root { --p-blue: #002e5b; --p-gold: #f1c40f; --p-green: #27ae60; }
         body { font-family: sans-serif; background: #f4f7f6; margin: 0; display: flex; flex-direction: column; align-items: center; }
         .header { background: var(--p-blue); color: white; width: 100%; padding: 15px 0; text-align: center; border-bottom: 4px solid var(--p-gold); }
         .container { background: white; width: 90%; max-width: 400px; padding: 20px; border-radius: 15px; margin-top: 20px; text-align: center; box-shadow: 0 5px 15px rgba(0,0,0,0.1); }
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; box-sizing: border-box; font-size: 16px; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; cursor: pointer; color: white; margin-top: 10px; }
+        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; color: white; margin-top: 10px; cursor: pointer; }
         .btn-search { background: var(--p-blue); }
-        .btn-reg { background: #f39c12; }
         .btn-att { background: var(--p-green); }
-        #message { padding: 10px; border-radius: 8px; margin-top: 10px; display: none; font-size: 14px; }
-        #video { width: 100%; border-radius: 10px; margin-top: 15px; display: none; transform: scaleX(-1); }
-        #location { font-size: 12px; margin-top: 10px; font-weight: bold; }
+        #video { width: 100%; border-radius: 10px; margin-top: 15px; display: none; background: #000; }
+        #aiStatus { font-size: 13px; font-weight: bold; margin-top: 5px; padding: 5px; border-radius: 5px; display: none; }
+        .status-red { background: #f8d7da; color: #721c24; }
+        .status-green { background: #d4edda; color: #155724; }
     </style>
 </head>
 <body>
 
 <div class="header">
     <h2>LA1 Naigaon Mumbai</h2>
-    <p>स्मार्ट हजेरी व पडताळणी प्रणाली</p>
+    <p>AI चेहरा पडताळणी प्रणाली</p>
 </div>
 
 <div class="container">
+    <div id="aiStatus">🤖 AI लोड होत आहे...</div>
     <input type="text" id="beltNo" placeholder="बकल नंबर टाका">
-    <button class="btn-search" onclick="verifyUser()">ओळख पटवा</button>
+    <button id="btnSearch" class="btn-search" onclick="verifyUser()" disabled>ओळख पटवा</button>
     
-    <div id="message"></div>
+    <div id="message" style="margin-top:10px; font-weight:bold;"></div>
     <video id="video" autoplay playsinline muted></video>
-    <div id="location"></div>
     
-    <button id="btnReg" class="btn-reg" style="display:none;" onclick="action('register_face')">पहिल्यांदा चेहरा नोंदणी करा</button>
-    <button id="btnAtt" class="btn-att" style="display:none;" onclick="action('mark_attendance')">हजेरी नोंदवा (पडताळणीसह)</button>
+    <button id="btnAction" class="btn-att" style="display:none;" onclick="handleAction()">हजेरी नोंदवा</button>
 </div>
 
 <script>
-    const URL = "https://script.google.com/macros/s/AKfycbyoz258DfJgM5KGa1Il8HGJ79nEmlrszX6dL6npHN4DpLHUL1d0-RpeZoCcY-rT1Htt/exec";
-    let lat, lon;
+    const APP_URL = "https://script.google.com/macros/s/AKfycbyoz258DfJgM5KGa1Il8HGJ79nEmlrszX6dL6npHN4DpLHUL1d0-RpeZoCcY-rT1Htt/exec";
+    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
+    let isRegistered = false;
+    let faceDetected = false;
 
-    function msg(t, c, b) {
-        let m = document.getElementById('message');
-        m.style.display="block"; m.innerText=t; m.style.color=c; m.style.backgroundColor=b;
-    }
+    // १. AI मॉडेल्स लोड करणे
+    Promise.all([
+        faceapi.nets.ssdMobilenetv1.loadFromUri(MODEL_URL),
+        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL)
+    ]).then(() => {
+        document.getElementById('aiStatus').innerText = "✅ सिस्टीम तयार आहे";
+        document.getElementById('aiStatus').className = "status-green";
+        document.getElementById('aiStatus').style.display = "block";
+        document.getElementById('btnSearch').disabled = false;
+    });
 
-    function verifyUser() {
-        let b = document.getElementById('beltNo').value;
-        if(!b) return alert("बकल नंबर टाका");
-        msg("तपासत आहे...", "black", "#eee");
-
-        fetch(URL, { method: 'POST', body: JSON.stringify({action:"verify_belt", belt_no:b}) })
+    async function verifyUser() {
+        let belt = document.getElementById('beltNo').value;
+        if(!belt) return alert("बकल नंबर टाका");
+        
+        fetch(APP_URL, { method: 'POST', body: JSON.stringify({action:"verify_belt", belt_no:belt}) })
         .then(r => r.json()).then(d => {
             if(d.status === 'success') {
-                msg("स्वागत आहे, " + d.name, "white", "#27ae60");
+                isRegistered = d.is_registered;
+                document.getElementById('btnAction').innerText = isRegistered ? "हजेरी नोंदवा" : "चेहरा नोंदणी करा";
+                document.getElementById('btnAction').style.display = "block";
                 startCam();
-                // जर रजिस्टर नसेल तर फक्त रजिस्ट्रेशन बटण दाखवा
-                if(!d.is_registered) {
-                    document.getElementById('btnReg').style.display="block";
-                    document.getElementById('btnAtt').style.display="none";
-                } else {
-                    document.getElementById('btnReg').style.display="none";
-                    document.getElementById('btnAtt').style.display="block";
-                }
-            } else { msg(d.message, "white", "#e74c3c"); }
+            } else {
+                alert(d.message);
+            }
         });
     }
 
     function startCam() {
-        document.getElementById('video').style.display="block";
-        navigator.mediaDevices.getUserMedia({video:{facingMode:"user"}})
-        .then(s => { document.getElementById('video').srcObject=s; });
-        
-        navigator.geolocation.getCurrentPosition(p => {
-            lat = p.coords.latitude; lon = p.coords.longitude;
-            document.getElementById('location').innerText="📍 लोकेशन प्राप्त झाले";
+        let video = document.getElementById('video');
+        video.style.display = "block";
+        navigator.mediaDevices.getUserMedia({video: {facingMode: "user"}})
+        .then(s => { 
+            video.srcObject = s;
+            detectFaceLoop(); // चेहरा तपासणी सुरू
         });
     }
 
-    function action(actType) {
-        let v = document.getElementById('video');
-        let c = document.createElement('canvas');
-        c.width=v.videoWidth; c.height=v.videoHeight;
-        c.getContext('2d').drawImage(v, 0, 0);
-        let img = c.toDataURL('image/jpeg');
+    // २. रिअल-टाइम चेहरा तपासणी (हीच खरी सुरक्षा आहे)
+    async function detectFaceLoop() {
+        let video = document.getElementById('video');
+        let status = document.getElementById('aiStatus');
+        
+        setInterval(async () => {
+            const detection = await faceapi.detectSingleFace(video);
+            if (detection) {
+                faceDetected = true;
+                status.innerText = "✅ चेहरा सापडला! आता बटण दाबा.";
+                status.className = "status-green";
+            } else {
+                faceDetected = false;
+                status.innerText = "❌ चेहरा दिसत नाही! कॅमेऱ्यासमोर या.";
+                status.className = "status-red";
+            }
+        }, 1000);
+    }
 
-        msg(actType==='register_face' ? "चेहरा नोंदवत आहे..." : "ओळख पडताळत आहे...", "black", "#fff3cd");
+    async function handleAction() {
+        if (!faceDetected) {
+            alert("चेहरा दिसत नाहीये! कृपया कॅमेऱ्यासमोर स्थिर उभे राहा.");
+            return;
+        }
 
-        fetch(URL, {
+        let video = document.getElementById('video');
+        let canvas = document.createElement('canvas');
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        let img = canvas.toDataURL('image/jpeg', 0.7);
+
+        let act = isRegistered ? "mark_attendance" : "register_face";
+        document.getElementById('btnAction').disabled = true;
+        document.getElementById('btnAction').innerText = "प्रक्रिया सुरू आहे...";
+
+        fetch(APP_URL, {
             method: 'POST',
             body: JSON.stringify({
-                action: actType,
+                action: act,
                 belt_no: document.getElementById('beltNo').value,
-                image: img,
-                lat: lat, lon: lon
+                image: img
             })
         }).then(r => r.json()).then(d => {
-            if(d.status === 'success') {
-                msg(d.message, "white", "#27ae60");
-                if(actType==='register_face') verifyUser(); // पुन्हा चेक करा म्हणजे हजेरी बटण येईल
-            } else { msg(d.message, "white", "#e74c3c"); }
+            alert(d.message);
+            location.reload();
         });
     }
 </script>
