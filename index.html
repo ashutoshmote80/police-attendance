@@ -116,50 +116,79 @@
 
     <p class="footer-text">Security & Surveillance Unit - Mumbai Police</p>
 
-    <script>
-        // तुमची नवीन Google Apps Script लिंक
+  <script>
+        // तुमची लिंक
         const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyoz258DfJgM5KGa1Il8HGJ79nEmlrszX6dL6npHN4DpLHUL1d0-RpeZoCcY-rT1Htt/exec";
+        let userLat = "0", userLon = "0";
 
         function showMessage(text, color, bgColor) {
             let msgDiv = document.getElementById('message');
-            msgDiv.style.display = "block";
-            msgDiv.innerText = text;
-            msgDiv.style.color = color;
-            msgDiv.style.backgroundColor = bgColor;
+            msgDiv.style.display = "block"; msgDiv.innerText = text;
+            msgDiv.style.color = color; msgDiv.style.backgroundColor = bgColor;
+        }
+
+        function startCamera() {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+                .then(stream => { document.getElementById('video').srcObject = stream; })
+                .catch(err => alert("कॅमेरा चालू करता आला नाही."));
+            
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition((pos) => {
+                    userLat = pos.coords.latitude; userLon = pos.coords.longitude;
+                    document.getElementById('locationData').innerText = "📍 लोकेशन प्राप्त झाले!";
+                    document.getElementById('locationData').style.color = "green";
+                }, () => { document.getElementById('locationData').innerText = "📍 GPS चालू करा!"; });
+            }
         }
 
         function checkBelt() {
             let belt = document.getElementById('beltNo').value;
-            if(!belt) { alert("कृपया बकल नंबर टाका"); return; }
-            
+            if(!belt) return alert("कृपया बकल नंबर टाका");
             showMessage("डेटाबेस तपासत आहे...", "blue", "#e3f2fd");
 
-            // सर्व्हर ऐवजी आता थेट Google Sheet ला विचारत आहोत
             fetch(GOOGLE_SHEET_URL, {
-                method: 'POST',
-                headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: "verify_belt", belt_no: belt })
             }).then(res => res.json()).then(data => {
                 if(data.status === 'success') {
                     document.getElementById('attendanceSection').style.display = "block";
+                    startCamera();
                     showMessage("स्वागत आहे, " + data.name, "white", "#27ae60");
-                    
-                    if(data.is_registered) {
-                        document.getElementById('btnAttend').style.display = "block";
-                        document.getElementById('btnRegister').style.display = "none";
-                    } else {
-                        document.getElementById('btnAttend').style.display = "none";
-                        document.getElementById('btnRegister').style.display = "block";
-                    }
+                    document.getElementById('btnAttend').style.display = data.is_registered ? "block" : "none";
+                    document.getElementById('btnRegister').style.display = data.is_registered ? "none" : "block";
                 } else {
                     showMessage(data.message, "white", "#e74c3c");
                     document.getElementById('attendanceSection').style.display = "none";
                 }
-            }).catch(e => {
-                showMessage("नेटवर्क एरर! पुन्हा प्रयत्न करा.", "white", "#e74c3c");
-                console.error(e);
+            });
+        }
+
+        function registerNewFace() {
+            showMessage("फोटो सेव्ह करत आहे...", "blue", "#e3f2fd");
+            let video = document.getElementById('video');
+            let canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            let imageData = canvas.toDataURL('image/jpeg'); // फोटो काढला
+
+            fetch(GOOGLE_SHEET_URL, {
+                method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: "register_face", belt_no: document.getElementById('beltNo').value, image: imageData })
+            }).then(res => res.json()).then(data => {
+                showMessage(data.message, "white", "#27ae60");
+                document.getElementById('btnRegister').style.display = "none";
+                document.getElementById('btnAttend').style.display = "block";
+            });
+        }
+
+        function takeAttendance() {
+            showMessage("हजेरी लावत आहे... कृपया थांबा.", "blue", "#e3f2fd");
+            fetch(GOOGLE_SHEET_URL, {
+                method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
+                body: JSON.stringify({ action: "mark_attendance", belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon })
+            }).then(res => res.json()).then(data => {
+                showMessage(data.message, "white", "#27ae60");
+                document.getElementById('attendanceSection').style.display = "none";
             });
         }
     </script>
-</body>
-</html>
