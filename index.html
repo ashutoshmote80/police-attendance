@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="mr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LA1 Naigaon Mumbai Hajeri</title>
+    <style>
+        :root {
+            --police-blue: #002e5b;
+            --police-gold: #f1c40f;
+            --success-green: #27ae60;
+            --error-red: #e74c3c;
+            --bg-color: #f4f7f6;
+        }
+
+        body { 
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
+            background-color: var(--bg-color);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Header Styling */
+        .header {
+            background-color: var(--police-blue);
+            color: white;
+            width: 100%;
+            padding: 20px 0;
+            text-align: center;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.1);
+            border-bottom: 4px solid var(--police-gold);
+            margin-bottom: 30px;
+        }
+
+        .header h1 { margin: 0; font-size: 22px; text-transform: uppercase; letter-spacing: 1px; }
+        .header p { margin: 5px 0 0; font-size: 14px; opacity: 0.9; }
+
+        /* Card Container */
+        .container {
+            background: white;
+            width: 90%;
+            max-width: 400px;
+            padding: 25px;
+            border-radius: 15px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.05);
+            text-align: center;
+        }
+
+        .input-group { margin-bottom: 20px; text-align: left; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; color: #333; font-size: 14px; }
+
+        input[type="text"] {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #ddd;
+            border-radius: 8px;
+            font-size: 16px;
+            box-sizing: border-box;
+            transition: border-color 0.3s;
+        }
+
+        input[type="text"]:focus { border-color: var(--police-blue); outline: none; }
+
+        button {
+            width: 100%;
+            padding: 12px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            transition: transform 0.2s, background 0.3s;
+            margin-top: 10px;
+        }
+
+        button:active { transform: scale(0.98); }
+
+        .btn-search { background-color: var(--police-blue); color: white; }
+        .btn-reg { background-color: #f39c12; color: white; }
+        .btn-att { background-color: var(--success-green); color: white; }
+
+        /* Message Styling */
+        #message { 
+            margin-top: 20px; 
+            padding: 12px; 
+            border-radius: 8px; 
+            font-size: 15px;
+            display: none; /* सुरुवातीला लपवलेले */
+        }
+
+        /* Video Section */
+        #attendanceSection { display: none; margin-top: 20px; }
+        
+        .video-wrapper {
+            position: relative;
+            border-radius: 12px;
+            overflow: hidden;
+            border: 3px solid var(--police-blue);
+            background: #000;
+            line-height: 0;
+        }
+
+        #video { width: 100%; height: auto; }
+
+        #locationData { 
+            background: #eef2f3;
+            padding: 10px;
+            border-radius: 8px;
+            margin-top: 15px;
+            font-size: 13px;
+            color: #555;
+            font-weight: bold;
+        }
+
+        .footer-text { margin-top: 30px; font-size: 12px; color: #888; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>LA1 Naigaon Mumbai </h1>
+        <p>महाराष्ट्र पोलीस (हजेरी प्रणाली)</p>
+    </div>
+
+    <div class="container">
+        <div class="input-group">
+            <label> बक्कल नंबर (Belt No.):</label>
+            <input type="text" id="beltNo" placeholder="बकल नंबर टाका">
+        </div>
+        
+        <button class="btn-search" onclick="checkBelt()">माहिती शोधा</button>
+
+        <div id="message"></div>
+
+        <div id="attendanceSection">
+            <div class="video-wrapper">
+                <video id="video" autoplay playsinline muted></video>
+            </div>
+            
+            <button id="btnRegister" class="btn-reg" onclick="registerNewFace()" style="display:none;">चेहरा नोंदणी करा</button>
+            <button id="btnAttend" class="btn-att" onclick="takeAttendance()" style="display:none;">हजेरी नोंदवा</button>
+            
+            <div id="locationData">📍 लोकेशन शोधत आहे...</div>
+        </div>
+    </div>
+
+    <p class="footer-text">Security & Surveillance Unit - Mumbai Police</p>
+
+    <script>
+        let userLat = 0; let userLon = 0;
+
+        function showMessage(text, color, bgColor) {
+            let msgDiv = document.getElementById('message');
+            msgDiv.style.display = "block";
+            msgDiv.innerText = text;
+            msgDiv.style.color = color;
+            msgDiv.style.backgroundColor = bgColor;
+        }
+
+        function checkBelt() {
+            let belt = document.getElementById('beltNo').value;
+            if(!belt) { alert("कृपया बकल नंबर टाका"); return; }
+            
+            showMessage("तपासत आहे...", "blue", "#e3f2fd");
+
+            fetch('/verify_belt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ belt_no: belt })
+            }).then(res => res.json()).then(data => {
+                if(data.status === 'success') {
+                    document.getElementById('attendanceSection').style.display = "block";
+                    startCameraAndLocation();
+                    if(data.is_registered) {
+                        showMessage("स्वागत आहे, " + data.name, "white", "#27ae60");
+                        document.getElementById('btnAttend').style.display = "block";
+                        document.getElementById('btnRegister').style.display = "none";
+                    } else {
+                        showMessage("स्वागत आहे, " + data.name + " (नोंदणी करा)", "white", "#f39c12");
+                        document.getElementById('btnAttend').style.display = "none";
+                        document.getElementById('btnRegister').style.display = "block";
+                    }
+                } else {
+                    showMessage(data.message, "white", "#e74c3c");
+                    document.getElementById('attendanceSection').style.display = "none";
+                }
+            }).catch(e => showMessage("सर्व्हर एरर.", "red", "#ffda0033"));
+        }
+
+        function startCameraAndLocation() {
+            navigator.mediaDevices.getUserMedia({ video: { facingMode: "user" } })
+                .then(stream => { document.getElementById('video').srcObject = stream; })
+                .catch(err => alert("कॅमेरा चालू करता आला नाही."));
+
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(
+                    (pos) => {
+                        userLat = pos.coords.latitude; userLon = pos.coords.longitude;
+                        fetch('/get_location_name', {
+                            method: 'POST', headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ lat: userLat, lon: userLon })
+                        }).then(res => res.json()).then(data => {
+                            let locDiv = document.getElementById('locationData');
+                            locDiv.innerText = "📍 " + (data.location_name || "लोकेशन मिळाले");
+                            locDiv.style.color = data.status === 'success' ? "green" : "red";
+                        });
+                    },
+                    (err) => { document.getElementById('locationData').innerText = "📍 GPS बंद आहे."; }
+                );
+            }
+        }
+
+        function registerNewFace() {
+            showMessage("फोटो काढत आहे...", "blue", "#e3f2fd");
+            let video = document.getElementById('video');
+            let canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            let imageData = canvas.toDataURL('image/jpeg');
+
+            fetch('/register_face', {
+                method: 'POST', headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ belt_no: document.getElementById('beltNo').value, image: imageData })
+            }).then(res => res.json()).then(data => {
+                if(data.status === 'success') {
+                    showMessage(data.message, "white", "#27ae60");
+                    document.getElementById('btnRegister').style.display = "none";
+                    document.getElementById('btnAttend').style.display = "block";
+                } else {
+                    showMessage(data.message, "white", "#e74c3c");
+                }
+            });
+        }
+
+        async function takeAttendance() {
+            showMessage("लाईव्हनेस तपासत आहे (डोळे मिचकावा)...", "blue", "#e3f2fd");
+            let frames = [];
+            let video = document.getElementById('video');
+            let canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            let context = canvas.getContext('2d');
+
+            for(let i = 0; i < 3; i++) {
+                context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                frames.push(canvas.toDataURL('image/jpeg'));
+                await new Promise(resolve => setTimeout(resolve, 400));
+            }
+
+            fetch('/mark_attendance', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon, images: frames })
+            }).then(response => response.json()).then(data => {
+                if(data.status === 'success') {
+                    showMessage(data.message, "white", "#27ae60");
+                    document.getElementById('attendanceSection').style.display = "none";
+                } else {
+                    showMessage(data.message, "white", "#e74c3c");
+                }
+            });
+        }
+    </script>
+</body>
+</html>
