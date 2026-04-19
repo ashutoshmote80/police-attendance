@@ -117,10 +117,10 @@
     </div>
 
     <p class="footer-text">Security & Surveillance Unit - Mumbai Police</p>
+<script>
+        const GOOGLE_SHEET_URL = "तुमची_जुनी_GOOGLE_SHEET_LINK_इथे_टाका"; 
+        // ^^^ वरील लिंक तुमची स्वतःची टाका जी आधी होती.
 
-    <script>
-        // तुमची Google Sheet API लिंक
-        const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyoz258DfJgM5KGa1Il8HGJ79nEmlrszX6dL6npHN4DpLHUL1d0-RpeZoCcY-rT1Htt/exec";
         let userLat = "0", userLon = "0";
 
         function showMessage(text, color, bgColor) {
@@ -143,6 +143,14 @@
             }
         }
 
+        function getPhoto() {
+            let video = document.getElementById('video');
+            let canvas = document.createElement('canvas');
+            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+            return canvas.toDataURL('image/jpeg');
+        }
+
         function checkBelt() {
             let belt = document.getElementById('beltNo').value;
             if(!belt) return alert("कृपया बकल नंबर टाका");
@@ -162,19 +170,12 @@
                     showMessage(data.message, "white", "#e74c3c");
                     document.getElementById('attendanceSection').style.display = "none";
                 }
-            }).catch(e => {
-                showMessage("नेटवर्क एरर! पुन्हा प्रयत्न करा.", "white", "#e74c3c");
             });
         }
 
         function registerNewFace() {
-            showMessage("फोटो सेव्ह करत आहे...", "blue", "#e3f2fd");
-            let video = document.getElementById('video');
-            let canvas = document.createElement('canvas');
-            canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-            canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-            let imageData = canvas.toDataURL('image/jpeg'); 
-
+            showMessage("चेहरा रजिस्टर करत आहे...", "blue", "#e3f2fd");
+            let imageData = getPhoto(); 
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
                 body: JSON.stringify({ action: "register_face", belt_no: document.getElementById('beltNo').value, image: imageData })
@@ -186,13 +187,18 @@
         }
 
         function takeAttendance() {
-            showMessage("हजेरी लावत आहे... कृपया थांबा.", "blue", "#e3f2fd");
+            showMessage("चेहरा आणि लोकेशन व्हेरीफाय करत आहे...", "blue", "#e3f2fd");
+            let imageData = getPhoto(); 
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' },
-                body: JSON.stringify({ action: "mark_attendance", belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon })
+                body: JSON.stringify({ action: "mark_attendance", belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon, image: imageData })
             }).then(res => res.json()).then(data => {
-                showMessage(data.message, "white", "#27ae60");
-                document.getElementById('attendanceSection').style.display = "none";
+                if(data.status === 'success'){
+                    showMessage(data.message, "white", "#27ae60");
+                    document.getElementById('attendanceSection').style.display = "none";
+                } else {
+                    showMessage(data.message, "white", "#e74c3c"); // लोकेशन किंवा डुप्लिकेट एरर इथे दिसेल
+                }
             }).catch(e => showMessage("एरर आला. पुन्हा प्रयत्न करा.", "white", "#e74c3c"));
         }
     </script>
