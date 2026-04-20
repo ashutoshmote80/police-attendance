@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>LA1 Naigaon Mumbai Hajeri</title>
-    <script defer src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         :root { --p-blue: #002e5b; --p-gold: #f1c40f; --p-green: #27ae60; }
         body { font-family: sans-serif; background: #f4f7f6; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
@@ -44,18 +44,20 @@
     let savedDescriptor = null;
     let userLat = "0", userLon = "0";
 
-    // १. हलके (Tiny) AI मॉडेल्स लोड करणे
-    Promise.all([
-        faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-        faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-        faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-    ]).then(() => {
-        let st = document.getElementById('aiStatus');
-        st.innerText = "✅ AI तयार आहे!"; st.style.background = "#d4edda"; st.style.color = "#155724";
-        document.getElementById('btnSearch').disabled = false;
-    }).catch(e => {
-        document.getElementById('aiStatus').innerText = "❌ इंटरनेट स्लो आहे.";
-    });
+    // वेब पेज लोड झाल्यावरच AI सुरू करणे
+    window.onload = function() {
+        Promise.all([
+            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
+            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
+            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
+        ]).then(() => {
+            let st = document.getElementById('aiStatus');
+            st.innerText = "✅ AI तयार आहे!"; st.style.background = "#d4edda"; st.style.color = "#155724";
+            document.getElementById('btnSearch').disabled = false;
+        }).catch(e => {
+            document.getElementById('aiStatus').innerText = "❌ इंटरनेट स्लो आहे. एरर: " + e.message;
+        });
+    };
 
     function showMsg(text, color) {
         let m = document.getElementById('msg');
@@ -85,8 +87,11 @@
     }
 
     function startCam() {
-        document.getElementById('video').style.display = "block";
-        navigator.mediaDevices.getUserMedia({video: {facingMode: "user"}}).then(s => { document.getElementById('video').srcObject = s; });
+        let video = document.getElementById('video');
+        video.style.display = "block";
+        navigator.mediaDevices.getUserMedia({video: {facingMode: "user"}}).then(s => { 
+            video.srcObject = s; 
+        });
         navigator.geolocation.getCurrentPosition(p => { userLat = p.coords.latitude; userLon = p.coords.longitude; });
     }
 
@@ -102,45 +107,53 @@
         showMsg("AI चेहरा स्कॅन करत आहे... उजेडात पहा", "blue");
         let video = document.getElementById('video');
         
-        // TinyFaceDetector वापरून स्कॅनिंग
-        const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-        
-        if(!detection) return showMsg("❌ चेहरा स्पष्ट दिसत नाही. उजेडात या.", "red");
+        try {
+            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+            
+            if(!detection) return showMsg("❌ चेहरा स्पष्ट दिसत नाही. उजेडात या.", "red");
 
-        let descStr = JSON.stringify(Array.from(detection.descriptor));
-        document.getElementById('btnReg').innerText = "सेव्ह करत आहे...";
+            let descStr = JSON.stringify(Array.from(detection.descriptor));
+            document.getElementById('btnReg').innerText = "सेव्ह करत आहे...";
+            document.getElementById('btnReg').disabled = true;
 
-        fetch(GOOGLE_SHEET_URL, {
-            method: 'POST', body: JSON.stringify({action: "register_face", belt_no: document.getElementById('beltNo').value, image: getPhoto(), descriptor: descStr})
-        }).then(r => r.json()).then(d => {
-            alert(d.message); location.reload();
-        });
+            fetch(GOOGLE_SHEET_URL, {
+                method: 'POST', body: JSON.stringify({action: "register_face", belt_no: document.getElementById('beltNo').value, image: getPhoto(), descriptor: descStr})
+            }).then(r => r.json()).then(d => {
+                alert(d.message); location.reload();
+            });
+        } catch(err) {
+            showMsg("स्कॅनिंग मध्ये तांत्रिक त्रुटी आली.", "red");
+        }
     }
 
     async function takeAttendance() {
         showMsg("क्रॉस-व्हेरिफिकेशन सुरू आहे... कॅमेऱ्याकडे पहा", "blue");
         let video = document.getElementById('video');
 
-        // TinyFaceDetector वापरून लाईव्ह स्कॅनिंग
-        const liveDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
-        
-        if(!liveDetection) return showMsg("❌ चेहरा स्कॅन होऊ शकला नाही.", "red");
+        try {
+            const liveDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+            
+            if(!liveDetection) return showMsg("❌ चेहरा स्कॅन होऊ शकला नाही. उजेडात उभे राहा.", "red");
 
-        // जुना चेहरा आणि लाईव्ह चेहरा मॅच करणे (Cross Verification)
-        const distance = faceapi.euclideanDistance(savedDescriptor, liveDetection.descriptor);
-        
-        if(distance > 0.50) { // ०.५० पेक्षा जास्त म्हणजे दुसरीच व्यक्ती
-            return showMsg("🚨 चेहरा मॅच झाला नाही! (Proxy Alert)", "red");
+            // जुना चेहरा आणि लाईव्ह चेहरा मॅच करणे (Cross Verification)
+            const distance = faceapi.euclideanDistance(savedDescriptor, liveDetection.descriptor);
+            
+            if(distance > 0.50) { // ०.५० पेक्षा जास्त अंतर म्हणजे दुसरी व्यक्ती
+                return showMsg("🚨 चेहरा मॅच झाला नाही! (Proxy Alert)", "red");
+            }
+
+            document.getElementById('btnAtt').innerText = "हजेरी लावत आहे...";
+            document.getElementById('btnAtt').disabled = true;
+
+            fetch(GOOGLE_SHEET_URL, {
+                method: 'POST', body: JSON.stringify({action: "mark_attendance", belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon, image: getPhoto()})
+            }).then(r => r.json()).then(d => {
+                if(d.status === 'success') { showMsg(d.message, "green"); alert("हजेरी यशस्वी!"); location.reload(); }
+                else { showMsg(d.message, "red"); document.getElementById('btnAtt').innerText = "हजेरी नोंदवा"; document.getElementById('btnAtt').disabled = false; }
+            });
+        } catch(err) {
+            showMsg("चेहरा तपासण्यात तांत्रिक अडचण आली.", "red");
         }
-
-        document.getElementById('btnAtt').innerText = "हजेरी लावत आहे...";
-
-        fetch(GOOGLE_SHEET_URL, {
-            method: 'POST', body: JSON.stringify({action: "mark_attendance", belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon, image: getPhoto()})
-        }).then(r => r.json()).then(d => {
-            if(d.status === 'success') { showMsg(d.message, "green"); alert("हजेरी यशस्वी!"); location.reload(); }
-            else { showMsg(d.message, "red"); document.getElementById('btnAtt').innerText = "हजेरी नोंदवा"; }
-        });
     }
 </script>
 </body>
