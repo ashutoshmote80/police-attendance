@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LA1 Naigaon Mumbai Hajeri</title>
+    <title>LA1 Naigaon - Secure Attendance</title>
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         :root { --p-blue: #002e5b; --p-gold: #f1c40f; --p-green: #27ae60; }
@@ -14,19 +14,20 @@
         button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; color: white; margin-top: 10px; cursor: pointer; }
         .btn-search { background: var(--p-blue); } .btn-reg { background: #f39c12; } .btn-att { background: var(--p-green); }
         #aiStatus { font-size: 13px; font-weight: bold; margin-bottom: 15px; padding: 8px; border-radius: 5px; background: #fff3cd; color: #856404; }
-        #video { width: 100%; border-radius: 10px; margin-top: 15px; display: none; background: #000; transform: scaleX(-1); }
-        #msg { margin-top: 10px; font-weight: bold; font-size: 14px; padding: 5px; }
+        #video { width: 100%; border-radius: 10px; margin-top: 15px; display: none; background: #000; transform: scaleX(-1); border: 3px solid var(--p-blue); }
+        #msg { margin-top: 10px; font-weight: bold; font-size: 14px; padding: 10px; border-radius: 5px; }
+        .blink-alert { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
     </style>
 </head>
 <body>
 
 <div class="header">
     <h2>LA1 Naigaon Mumbai</h2>
-    <p>AI क्रॉस-व्हेरिफिकेशन हजेरी</p>
+    <p>अँटी-स्पूफिंग हजेरी (Live Check)</p>
 </div>
 
 <div class="container">
-    <div id="aiStatus">🤖 AI लोड होत आहे (Fast Mode)...</div>
+    <div id="aiStatus">🤖 AI लोड होत आहे...</div>
     
     <input type="text" id="beltNo" placeholder="बकल नंबर टाका">
     <button id="btnSearch" class="btn-search" onclick="checkBelt()" disabled>ओळख पटवा</button>
@@ -34,8 +35,8 @@
     <div id="msg"></div>
     <video id="video" autoplay playsinline muted></video>
     
-    <button id="btnReg" class="btn-reg" style="display:none;" onclick="registerFace()">चेहरा नोंदणी करा</button>
-    <button id="btnAtt" class="btn-att" style="display:none;" onclick="takeAttendance()">हजेरी नोंदवा</button>
+    <button id="btnReg" class="btn-reg" style="display:none;" onclick="startLiveness('register_face')">चेहरा नोंदणी सुरू करा</button>
+    <button id="btnAtt" class="btn-att" style="display:none;" onclick="startLiveness('mark_attendance')">हजेरी सुरू करा</button>
 </div>
 
 <script>
@@ -43,6 +44,10 @@
     const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
     let savedDescriptor = null;
     let userLat = "0", userLon = "0";
+
+    let isCheckingLiveness = false;
+    let hasBlinked = false;
+    let pendingAction = "";
 
     const aiOptions = new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.25, inputSize: 320 });
 
@@ -60,20 +65,22 @@
         });
     };
 
-    function showMsg(text, color) {
+    function showMsg(text, type="info") {
         let m = document.getElementById('msg');
-        m.innerText = text; m.style.color = color;
+        m.innerText = text;
+        if(type === "alert") { m.className = "blink-alert"; }
+        else { m.className = ""; m.style.color = (type==="error"?"red":"blue"); }
     }
 
     function checkBelt() {
         let belt = document.getElementById('beltNo').value;
         if(!belt) return alert("बकल नंबर टाका");
-        showMsg("डेटाबेस तपासत आहे...", "blue");
+        showMsg("डेटाबेस तपासत आहे...");
 
         fetch(GOOGLE_SHEET_URL, { method: 'POST', body: JSON.stringify({action: "verify_belt", belt_no: belt}) })
         .then(r => r.json()).then(data => {
             if(data.status === 'success') {
-                showMsg("स्वागत आहे, " + data.name, "green");
+                showMsg("स्वागत आहे, " + data.name);
                 startCam();
                 if(data.is_registered && data.descriptor) {
                     savedDescriptor = new Float32Array(JSON.parse(data.descriptor));
@@ -83,98 +90,104 @@
                     document.getElementById('btnReg').style.display = "block";
                     document.getElementById('btnAtt').style.display = "none";
                 }
-            } else { showMsg(data.message, "red"); }
+            } else { showMsg(data.message, "error"); }
         });
     }
 
     function startCam() {
         let video = document.getElementById('video');
         video.style.display = "block";
-        navigator.mediaDevices.getUserMedia({video: {facingMode: "user"}}).then(s => { 
-            video.srcObject = s; 
-        });
+        navigator.mediaDevices.getUserMedia({video: {facingMode: "user"}}).then(s => { video.srcObject = s; });
         navigator.geolocation.getCurrentPosition(p => { userLat = p.coords.latitude; userLon = p.coords.longitude; });
     }
 
-    // आता आपण थेट कॅनव्हास (Canvas) परत करत आहोत, जेणेकरून त्यावरच AI स्कॅनिंग होईल
+    // डोळ्यांमधील अंतर मोजण्याचे सूत्र (EAR - Eye Aspect Ratio)
+    function getDistance(p1, p2) { return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2)); }
+    function getEAR(eye) {
+        const v1 = getDistance(eye[1], eye[5]);
+        const v2 = getDistance(eye[2], eye[4]);
+        const h = getDistance(eye[0], eye[3]);
+        return (v1 + v2) / (2.0 * h);
+    }
+
+    function startLiveness(action) {
+        pendingAction = action;
+        isCheckingLiveness = true;
+        hasBlinked = false;
+        
+        document.getElementById('btnReg').disabled = true;
+        document.getElementById('btnAtt').disabled = true;
+        document.getElementById('video').style.borderColor = "#e74c3c"; // लाल बॉर्डर
+        
+        showMsg("👁️ कृपया जीवंत असल्याची खात्री करण्यासाठी 'डोळे मिचकावा' (Blink Eyes)", "alert");
+        detectLivenessLoop();
+    }
+
+    async function detectLivenessLoop() {
+        if(!isCheckingLiveness) return;
+
+        let video = document.getElementById('video');
+        try {
+            const detection = await faceapi.detectSingleFace(video, aiOptions).withFaceLandmarks().withFaceDescriptor();
+
+            if(detection) {
+                const leftEAR = getEAR(detection.landmarks.getLeftEye());
+                const rightEAR = getEAR(detection.landmarks.getRightEye());
+
+                // जर डोळे बंद झाले (EAR कमी झाला)
+                if (leftEAR < 0.25 && rightEAR < 0.25) {
+                    hasBlinked = true;
+                    showMsg("✅ डोळे मिचकावले! आता डोळे उघडा...", "info");
+                } 
+                // जर डोळे पुन्हा उघडले (Blink पूर्ण झाले)
+                else if (hasBlinked && leftEAR > 0.28 && rightEAR > 0.28) {
+                    isCheckingLiveness = false; // लूप थांबवा
+                    document.getElementById('video').style.borderColor = "#27ae60"; // हिरवी बॉर्डर
+                    executeFinalAction(detection.descriptor); // फोटो काढा आणि पाठवा
+                    return;
+                }
+            } else {
+                showMsg("❌ चेहरा स्पष्ट दिसत नाही. कॅमेऱ्यासमोर या.", "error");
+            }
+        } catch(e) {}
+
+        setTimeout(detectLivenessLoop, 150); // सतत चेक करत राहा
+    }
+
     function captureExactMoment() {
         let video = document.getElementById('video');
         let canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth; 
-        canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-        return canvas; // काढलेला फोटो परत पाठवणे
+        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.getContext('2d').drawImage(video, 0, 0);
+        return canvas.toDataURL('image/jpeg', 0.6);
     }
 
-    async function registerFace() {
-        document.getElementById('btnReg').disabled = true;
-        showMsg("फोटो काढला! AI तपासत आहे...", "blue");
-        
-        let canvasSnapshot = captureExactMoment(); // १. फोटो काढला
-        
-        try {
-            // २. काढलेल्या फोटोवर AI चालवणे (व्हिडिओवर नाही)
-            const detection = await faceapi.detectSingleFace(canvasSnapshot, aiOptions).withFaceLandmarks().withFaceDescriptor();
+    async function executeFinalAction(liveDescriptor) {
+        let finalImage = captureExactMoment();
+
+        if (pendingAction === "register_face") {
+            showMsg("चेहरा आणि Live Test पास! नोंदणी करत आहे...", "info");
+            let descStr = JSON.stringify(Array.from(liveDescriptor));
             
-            if(!detection) {
-                showMsg("❌ काढलेल्या फोटोत तुमचा चेहरा नाही! पुन्हा प्रयत्न करा.", "red");
-                document.getElementById('btnReg').disabled = false;
-                return;
-            }
-
-            let descStr = JSON.stringify(Array.from(detection.descriptor));
-            let finalImage = canvasSnapshot.toDataURL('image/jpeg', 0.6); // ३. तोच फोटो सेव्ह करण्यासाठी तयार करणे
-
-            showMsg("चेहरा सापडला! सेव्ह करत आहे...", "blue");
-
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST', body: JSON.stringify({action: "register_face", belt_no: document.getElementById('beltNo').value, image: finalImage, descriptor: descStr})
-            }).then(r => r.json()).then(d => {
-                alert(d.message); location.reload();
-            });
-        } catch(err) {
-            showMsg("स्कॅनिंग मध्ये तांत्रिक त्रुटी आली.", "red");
-            document.getElementById('btnReg').disabled = false;
-        }
-    }
-
-    async function takeAttendance() {
-        document.getElementById('btnAtt').disabled = true;
-        showMsg("फोटो काढला! क्रॉस-व्हेरिफिकेशन सुरू आहे...", "blue");
-        
-        let canvasSnapshot = captureExactMoment(); // १. फोटो काढला
-
-        try {
-            // २. काढलेल्या फोटोत चेहरा तपासणे
-            const liveDetection = await faceapi.detectSingleFace(canvasSnapshot, aiOptions).withFaceLandmarks().withFaceDescriptor();
+            }).then(r => r.json()).then(d => { alert(d.message); location.reload(); });
             
-            if(!liveDetection) {
-                showMsg("❌ काढलेल्या फोटोत चेहरा दिसत नाही. स्थिर उभे राहा.", "red");
-                document.getElementById('btnAtt').disabled = false;
-                return;
-            }
-
-            // ३. काढलेला फोटो जुन्या फोटोसोबत मॅच करणे
-            const distance = faceapi.euclideanDistance(savedDescriptor, liveDetection.descriptor);
+        } else if (pendingAction === "mark_attendance") {
+            const distance = faceapi.euclideanDistance(savedDescriptor, liveDescriptor);
             if(distance > 0.55) { 
-                showMsg("🚨 काढलेला चेहरा जुळत नाही! (Proxy Alert)", "red");
+                showMsg("🚨 काढलेला चेहरा जुळत नाही! (Proxy Alert)", "error");
                 document.getElementById('btnAtt').disabled = false;
                 return;
             }
 
-            let finalImage = canvasSnapshot.toDataURL('image/jpeg', 0.6);
-
-            showMsg("चेहरा मॅच झाला! हजेरी लावत आहे...", "blue");
-
+            showMsg("चेहरा मॅच झाला! हजेरी लावत आहे...", "info");
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST', body: JSON.stringify({action: "mark_attendance", belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon, image: finalImage})
             }).then(r => r.json()).then(d => {
-                if(d.status === 'success') { showMsg(d.message, "green"); alert("हजेरी यशस्वी!"); location.reload(); }
-                else { showMsg(d.message, "red"); document.getElementById('btnAtt').innerText = "हजेरी नोंदवा"; document.getElementById('btnAtt').disabled = false; }
+                if(d.status === 'success') { showMsg(d.message, "info"); alert("हजेरी यशस्वी!"); location.reload(); }
+                else { showMsg(d.message, "error"); document.getElementById('btnAtt').disabled = false; }
             });
-        } catch(err) {
-            showMsg("चेहरा तपासण्यात तांत्रिक अडचण आली.", "red");
-            document.getElementById('btnAtt').disabled = false;
         }
     }
 </script>
