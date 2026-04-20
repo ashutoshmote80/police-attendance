@@ -15,7 +15,7 @@
         .btn-search { background: var(--p-blue); } .btn-reg { background: #f39c12; } .btn-att { background: var(--p-green); }
         #aiStatus { font-size: 13px; font-weight: bold; margin-bottom: 15px; padding: 8px; border-radius: 5px; background: #fff3cd; color: #856404; }
         #video { width: 100%; border-radius: 10px; margin-top: 15px; display: none; background: #000; transform: scaleX(-1); }
-        #msg { margin-top: 10px; font-weight: bold; font-size: 14px; }
+        #msg { margin-top: 10px; font-weight: bold; font-size: 14px; padding: 5px; }
     </style>
 </head>
 <body>
@@ -44,7 +44,9 @@
     let savedDescriptor = null;
     let userLat = "0", userLon = "0";
 
-    // वेब पेज लोड झाल्यावरच AI सुरू करणे
+    // AI ची सेन्सिटिव्हिटी वाढवली आहे (०.५ वरून ०.२५ केली आहे)
+    const aiOptions = new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.25, inputSize: 320 });
+
     window.onload = function() {
         Promise.all([
             faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
@@ -99,18 +101,22 @@
         let video = document.getElementById('video');
         let canvas = document.createElement('canvas');
         canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
         return canvas.toDataURL('image/jpeg', 0.6);
     }
 
     async function registerFace() {
-        showMsg("AI चेहरा स्कॅन करत आहे... उजेडात पहा", "blue");
+        showMsg("AI चेहरा स्कॅन करत आहे... कॅमेऱ्याकडे पहा", "blue");
         let video = document.getElementById('video');
         
         try {
-            const detection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+            // सुधारित सेन्सिटिव्हिटी वापरून स्कॅनिंग
+            const detection = await faceapi.detectSingleFace(video, aiOptions).withFaceLandmarks().withFaceDescriptor();
             
-            if(!detection) return showMsg("❌ चेहरा स्पष्ट दिसत नाही. उजेडात या.", "red");
+            if(!detection) {
+                showMsg("❌ चेहरा स्पष्ट दिसत नाही. उजेडात या किंवा कॅमेरा थोडा लांब धरा.", "red");
+                return;
+            }
 
             let descStr = JSON.stringify(Array.from(detection.descriptor));
             document.getElementById('btnReg').innerText = "सेव्ह करत आहे...";
@@ -131,14 +137,18 @@
         let video = document.getElementById('video');
 
         try {
-            const liveDetection = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions()).withFaceLandmarks().withFaceDescriptor();
+            // सुधारित सेन्सिटिव्हिटी वापरून लाईव्ह स्कॅनिंग
+            const liveDetection = await faceapi.detectSingleFace(video, aiOptions).withFaceLandmarks().withFaceDescriptor();
             
-            if(!liveDetection) return showMsg("❌ चेहरा स्कॅन होऊ शकला नाही. उजेडात उभे राहा.", "red");
+            if(!liveDetection) {
+                showMsg("❌ चेहरा स्कॅन होऊ शकला नाही. कॅमेरा थोडा लांब धरा.", "red");
+                return;
+            }
 
-            // जुना चेहरा आणि लाईव्ह चेहरा मॅच करणे (Cross Verification)
             const distance = faceapi.euclideanDistance(savedDescriptor, liveDetection.descriptor);
             
-            if(distance > 0.50) { // ०.५० पेक्षा जास्त अंतर म्हणजे दुसरी व्यक्ती
+            // मॅचिंग लिमिट थोडी वाढवली आहे जेणेकरून लाईव्ह फोटो रिजेक्ट होणार नाही
+            if(distance > 0.55) { 
                 return showMsg("🚨 चेहरा मॅच झाला नाही! (Proxy Alert)", "red");
             }
 
