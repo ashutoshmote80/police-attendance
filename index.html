@@ -44,7 +44,6 @@
     let savedDescriptor = null;
     let userLat = "0", userLon = "0";
 
-    // AI ची सेन्सिटिव्हिटी वाढवली आहे (०.५ वरून ०.२५ केली आहे)
     const aiOptions = new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.25, inputSize: 320 });
 
     window.onload = function() {
@@ -57,7 +56,7 @@
             st.innerText = "✅ AI तयार आहे!"; st.style.background = "#d4edda"; st.style.color = "#155724";
             document.getElementById('btnSearch').disabled = false;
         }).catch(e => {
-            document.getElementById('aiStatus').innerText = "❌ इंटरनेट स्लो आहे. एरर: " + e.message;
+            document.getElementById('aiStatus').innerText = "❌ इंटरनेट स्लो आहे.";
         });
     };
 
@@ -97,72 +96,85 @@
         navigator.geolocation.getCurrentPosition(p => { userLat = p.coords.latitude; userLon = p.coords.longitude; });
     }
 
-    function getPhoto() {
+    // आता आपण थेट कॅनव्हास (Canvas) परत करत आहोत, जेणेकरून त्यावरच AI स्कॅनिंग होईल
+    function captureExactMoment() {
         let video = document.getElementById('video');
         let canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
+        canvas.width = video.videoWidth; 
+        canvas.height = video.videoHeight;
         canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-        return canvas.toDataURL('image/jpeg', 0.6);
+        return canvas; // काढलेला फोटो परत पाठवणे
     }
 
     async function registerFace() {
-        showMsg("AI चेहरा स्कॅन करत आहे... कॅमेऱ्याकडे पहा", "blue");
-        let video = document.getElementById('video');
+        document.getElementById('btnReg').disabled = true;
+        showMsg("फोटो काढला! AI तपासत आहे...", "blue");
+        
+        let canvasSnapshot = captureExactMoment(); // १. फोटो काढला
         
         try {
-            // सुधारित सेन्सिटिव्हिटी वापरून स्कॅनिंग
-            const detection = await faceapi.detectSingleFace(video, aiOptions).withFaceLandmarks().withFaceDescriptor();
+            // २. काढलेल्या फोटोवर AI चालवणे (व्हिडिओवर नाही)
+            const detection = await faceapi.detectSingleFace(canvasSnapshot, aiOptions).withFaceLandmarks().withFaceDescriptor();
             
             if(!detection) {
-                showMsg("❌ चेहरा स्पष्ट दिसत नाही. उजेडात या किंवा कॅमेरा थोडा लांब धरा.", "red");
+                showMsg("❌ काढलेल्या फोटोत तुमचा चेहरा नाही! पुन्हा प्रयत्न करा.", "red");
+                document.getElementById('btnReg').disabled = false;
                 return;
             }
 
             let descStr = JSON.stringify(Array.from(detection.descriptor));
-            document.getElementById('btnReg').innerText = "सेव्ह करत आहे...";
-            document.getElementById('btnReg').disabled = true;
+            let finalImage = canvasSnapshot.toDataURL('image/jpeg', 0.6); // ३. तोच फोटो सेव्ह करण्यासाठी तयार करणे
+
+            showMsg("चेहरा सापडला! सेव्ह करत आहे...", "blue");
 
             fetch(GOOGLE_SHEET_URL, {
-                method: 'POST', body: JSON.stringify({action: "register_face", belt_no: document.getElementById('beltNo').value, image: getPhoto(), descriptor: descStr})
+                method: 'POST', body: JSON.stringify({action: "register_face", belt_no: document.getElementById('beltNo').value, image: finalImage, descriptor: descStr})
             }).then(r => r.json()).then(d => {
                 alert(d.message); location.reload();
             });
         } catch(err) {
             showMsg("स्कॅनिंग मध्ये तांत्रिक त्रुटी आली.", "red");
+            document.getElementById('btnReg').disabled = false;
         }
     }
 
     async function takeAttendance() {
-        showMsg("क्रॉस-व्हेरिफिकेशन सुरू आहे... कॅमेऱ्याकडे पहा", "blue");
-        let video = document.getElementById('video');
+        document.getElementById('btnAtt').disabled = true;
+        showMsg("फोटो काढला! क्रॉस-व्हेरिफिकेशन सुरू आहे...", "blue");
+        
+        let canvasSnapshot = captureExactMoment(); // १. फोटो काढला
 
         try {
-            // सुधारित सेन्सिटिव्हिटी वापरून लाईव्ह स्कॅनिंग
-            const liveDetection = await faceapi.detectSingleFace(video, aiOptions).withFaceLandmarks().withFaceDescriptor();
+            // २. काढलेल्या फोटोत चेहरा तपासणे
+            const liveDetection = await faceapi.detectSingleFace(canvasSnapshot, aiOptions).withFaceLandmarks().withFaceDescriptor();
             
             if(!liveDetection) {
-                showMsg("❌ चेहरा स्कॅन होऊ शकला नाही. कॅमेरा थोडा लांब धरा.", "red");
+                showMsg("❌ काढलेल्या फोटोत चेहरा दिसत नाही. स्थिर उभे राहा.", "red");
+                document.getElementById('btnAtt').disabled = false;
                 return;
             }
 
+            // ३. काढलेला फोटो जुन्या फोटोसोबत मॅच करणे
             const distance = faceapi.euclideanDistance(savedDescriptor, liveDetection.descriptor);
-            
-            // मॅचिंग लिमिट थोडी वाढवली आहे जेणेकरून लाईव्ह फोटो रिजेक्ट होणार नाही
             if(distance > 0.55) { 
-                return showMsg("🚨 चेहरा मॅच झाला नाही! (Proxy Alert)", "red");
+                showMsg("🚨 काढलेला चेहरा जुळत नाही! (Proxy Alert)", "red");
+                document.getElementById('btnAtt').disabled = false;
+                return;
             }
 
-            document.getElementById('btnAtt').innerText = "हजेरी लावत आहे...";
-            document.getElementById('btnAtt').disabled = true;
+            let finalImage = canvasSnapshot.toDataURL('image/jpeg', 0.6);
+
+            showMsg("चेहरा मॅच झाला! हजेरी लावत आहे...", "blue");
 
             fetch(GOOGLE_SHEET_URL, {
-                method: 'POST', body: JSON.stringify({action: "mark_attendance", belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon, image: getPhoto()})
+                method: 'POST', body: JSON.stringify({action: "mark_attendance", belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon, image: finalImage})
             }).then(r => r.json()).then(d => {
                 if(d.status === 'success') { showMsg(d.message, "green"); alert("हजेरी यशस्वी!"); location.reload(); }
                 else { showMsg(d.message, "red"); document.getElementById('btnAtt').innerText = "हजेरी नोंदवा"; document.getElementById('btnAtt').disabled = false; }
             });
         } catch(err) {
             showMsg("चेहरा तपासण्यात तांत्रिक अडचण आली.", "red");
+            document.getElementById('btnAtt').disabled = false;
         }
     }
 </script>
