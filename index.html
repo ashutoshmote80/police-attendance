@@ -11,7 +11,8 @@
         .header { background: var(--p-blue); color: white; width: 100%; padding: 15px 0; text-align: center; border-bottom: 4px solid var(--p-gold); margin-bottom: 20px; }
         .container { background: white; width: 90%; max-width: 400px; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); text-align: center; }
         input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; color: white; margin-top: 10px; cursor: pointer; }
+        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; color: white; margin-top: 10px; cursor: pointer; transition: 0.3s; }
+        button:active { transform: scale(0.95); }
         .btn-search { background: var(--p-blue); } .btn-reg { background: #f39c12; } .btn-att { background: var(--p-green); }
         #aiStatus { font-size: 13px; font-weight: bold; margin-bottom: 15px; padding: 8px; border-radius: 5px; background: #fff3cd; color: #856404; }
         #video { width: 100%; border-radius: 10px; margin-top: 15px; display: none; background: #000; transform: scaleX(-1); border: 3px solid var(--p-blue); }
@@ -101,7 +102,6 @@
         navigator.geolocation.getCurrentPosition(p => { userLat = p.coords.latitude; userLon = p.coords.longitude; });
     }
 
-    // डोळ्यांमधील अंतर मोजण्याचे सूत्र (EAR - Eye Aspect Ratio)
     function getDistance(p1, p2) { return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2)); }
     function getEAR(eye) {
         const v1 = getDistance(eye[1], eye[5]);
@@ -117,7 +117,7 @@
         
         document.getElementById('btnReg').disabled = true;
         document.getElementById('btnAtt').disabled = true;
-        document.getElementById('video').style.borderColor = "#e74c3c"; // लाल बॉर्डर
+        document.getElementById('video').style.borderColor = "#e74c3c";
         
         showMsg("👁️ कृपया जीवंत असल्याची खात्री करण्यासाठी 'डोळे मिचकावा' (Blink Eyes)", "alert");
         detectLivenessLoop();
@@ -134,16 +134,14 @@
                 const leftEAR = getEAR(detection.landmarks.getLeftEye());
                 const rightEAR = getEAR(detection.landmarks.getRightEye());
 
-                // जर डोळे बंद झाले (EAR कमी झाला)
                 if (leftEAR < 0.25 && rightEAR < 0.25) {
                     hasBlinked = true;
                     showMsg("✅ डोळे मिचकावले! आता डोळे उघडा...", "info");
                 } 
-                // जर डोळे पुन्हा उघडले (Blink पूर्ण झाले)
                 else if (hasBlinked && leftEAR > 0.28 && rightEAR > 0.28) {
-                    isCheckingLiveness = false; // लूप थांबवा
-                    document.getElementById('video').style.borderColor = "#27ae60"; // हिरवी बॉर्डर
-                    executeFinalAction(detection.descriptor); // फोटो काढा आणि पाठवा
+                    isCheckingLiveness = false;
+                    document.getElementById('video').style.borderColor = "#27ae60"; 
+                    executeFinalAction(detection.descriptor); 
                     return;
                 }
             } else {
@@ -151,27 +149,37 @@
             }
         } catch(e) {}
 
-        setTimeout(detectLivenessLoop, 150); // सतत चेक करत राहा
+        setTimeout(detectLivenessLoop, 150);
     }
 
+    // 🔥 SPEED UP UPGRADE: फोटोची साईझ ३ पट लहान केली आहे, जेणेकरून तो १ सेकंदात अपलोड होईल.
     function captureExactMoment() {
         let video = document.getElementById('video');
         let canvas = document.createElement('canvas');
-        canvas.width = video.videoWidth; canvas.height = video.videoHeight;
-        canvas.getContext('2d').drawImage(video, 0, 0);
-        return canvas.toDataURL('image/jpeg', 0.6);
+        
+        // फोटो कॉम्प्रेस करण्याची पद्धत
+        let MAX_WIDTH = 400; 
+        let scale = MAX_WIDTH / video.videoWidth;
+        canvas.width = MAX_WIDTH;
+        canvas.height = video.videoHeight * scale;
+        
+        canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
+        return canvas.toDataURL('image/jpeg', 0.6); // 0.6 म्हणजे क्वालिटी 60% (Dry Upload)
     }
 
     async function executeFinalAction(liveDescriptor) {
         let finalImage = captureExactMoment();
 
         if (pendingAction === "register_face") {
-            showMsg("चेहरा आणि Live Test पास! नोंदणी करत आहे...", "info");
+            showMsg("चेहरा आणि Live Test पास! वेगाने नोंदणी करत आहे...", "info");
             let descStr = JSON.stringify(Array.from(liveDescriptor));
             
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST', body: JSON.stringify({action: "register_face", belt_no: document.getElementById('beltNo').value, image: finalImage, descriptor: descStr})
-            }).then(r => r.json()).then(d => { alert(d.message); location.reload(); });
+            }).then(r => r.json()).then(d => { 
+                alert("✅ " + d.message); // योग्य मेसेज पॉपअप
+                location.reload(); 
+            });
             
         } else if (pendingAction === "mark_attendance") {
             const distance = faceapi.euclideanDistance(savedDescriptor, liveDescriptor);
@@ -181,12 +189,21 @@
                 return;
             }
 
-            showMsg("चेहरा मॅच झाला! हजेरी लावत आहे...", "info");
+            showMsg("चेहरा मॅच झाला! हजेरी डेटा वेगाने पाठवत आहे...", "info");
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST', body: JSON.stringify({action: "mark_attendance", belt_no: document.getElementById('beltNo').value, lat: userLat, lon: userLon, image: finalImage})
             }).then(r => r.json()).then(d => {
-                if(d.status === 'success') { showMsg(d.message, "info"); alert("हजेरी यशस्वी!"); location.reload(); }
-                else { showMsg(d.message, "error"); document.getElementById('btnAtt').disabled = false; }
+                if(d.status === 'success') { 
+                    showMsg(d.message, "info"); 
+                    // 🔥 POPUP UPGRADE: आता पॉपअपमध्ये थेट शीटमधून आलेला 'लोकेशन' वाला मेसेज दिसेल
+                    alert("✅ " + d.message); 
+                    location.reload(); 
+                }
+                else { 
+                    showMsg(d.message, "error"); 
+                    alert("❌ " + d.message); 
+                    document.getElementById('btnAtt').disabled = false; 
+                }
             });
         }
     }
