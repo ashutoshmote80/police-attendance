@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LA1 Naigaon - Flash Hajeri</title>
+    <title>LA1 Naigaon - Admin Controlled Hajeri</title>
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
     <style>
         :root { --p-blue: #002e5b; --p-gold: #f1c40f; --p-green: #27ae60; }
@@ -24,7 +24,7 @@
 
 <div class="header">
     <h2>LA1 Naigaon Mumbai</h2>
-    <p>फ्लॅश हजेरी प्रणाली (Zero Wait)</p>
+    <p>डायनॅमिक ड्युटी पॉईंट हजेरी</p>
 </div>
 
 <div class="container">
@@ -44,15 +44,7 @@
     const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyoz258DfJgM5KGa1Il8HGJ79nEmlrszX6dL6npHN4DpLHUL1d0-RpeZoCcY-rT1Htt/exec";
     const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
     
-    // १. लोकेशन्स आता मोबाईलमध्येच मोजले जातील (गुगलची वाट बघायची नाही)
-    const ALLOWED_LOCATIONS = [
-        {name: "LA1 Naigaon", lat: 19.015020, lon: 72.840010}, 
-        {name: "मुंबई पोलीस मुख्यालय", lat: 18.9438, lon: 72.8330},
-        {name: "वरळी सी-फेस", lat: 19.0176, lon: 72.8150},
-        {name: "दादर टीटी चौक", lat: 19.0192, lon: 72.8431},
-        {name: "Home", lat: 19.0239, lon: 73.1028}
-    ];
-
+    let DYNAMIC_LOCATIONS = []; // गुगल शीटमधून आलेले लोकेशन्स इथे राहतील
     let savedDescriptor = null;
     let userLat = "0", userLon = "0";
     let isCheckingLiveness = false;
@@ -80,28 +72,19 @@
         else { m.className = ""; m.style.color = (type==="error"?"red":"blue"); }
     }
 
-    // २. फास्ट बेल्ट चेकिंग (स्मार्ट मेमरी वापरून)
     function checkBelt() {
         let belt = document.getElementById('beltNo').value.trim();
         if(!belt) return alert("बकल नंबर टाका");
 
-        // आधी मोबाईलच्या मेमरीत शोधा (०.०१ सेकंद वेळ लागेल)
-        let cachedData = localStorage.getItem("police_" + belt);
-        if(cachedData) {
-            let data = JSON.parse(cachedData);
-            processUserData(data);
-            return; // मेमरीत सापडल्यास गुगलकडे जाणे टाळा!
-        }
-
-        // मेमरीत नसेल तरच गुगलकडे जा (फक्त पहिल्यांदा वेळ लागेल)
-        showMsg("पहिल्यांदा डेटाबेस तपासत आहे...", "blue");
+        // आपण इथे मेमरी क्लिअर करत आहोत जेणेकरून शीटमधील नवीन लोकेशन्स नेहमी ताजे (Fresh) मिळतील
+        showMsg("गुगल शीटमधून ड्युटी पॉईंट्स आणि डेटा तपासत आहे...", "blue");
         document.getElementById('btnSearch').disabled = true;
 
         fetch(GOOGLE_SHEET_URL, { method: 'POST', body: JSON.stringify({action: "verify_belt", belt_no: belt}) })
         .then(r => r.json()).then(data => {
             document.getElementById('btnSearch').disabled = false;
             if(data.status === 'success') {
-                localStorage.setItem("police_" + belt, JSON.stringify(data)); // भविष्यासाठी सेव्ह केले
+                DYNAMIC_LOCATIONS = data.locations || []; // गुगल शीटचे लोकेशन्स सेव्ह केले
                 processUserData(data);
             } else { showMsg(data.message, "error"); }
         });
@@ -127,13 +110,16 @@
         navigator.geolocation.getCurrentPosition(p => { userLat = p.coords.latitude; userLon = p.coords.longitude; });
     }
 
-    // लोकेशन मोजण्याचे सूत्र (मोबाईलमध्येच)
+    // लोकेशन मोजण्याचे सूत्र (गुगल शीटच्या Radius नुसार)
     function checkCurrentLocation() {
+        if(DYNAMIC_LOCATIONS.length === 0) return "Unknown (No Locations in Sheet)";
         const R = 6371e3; const MathPI = Math.PI/180;
-        for(let loc of ALLOWED_LOCATIONS) {
+        
+        for(let loc of DYNAMIC_LOCATIONS) {
             let a = Math.sin((loc.lat-userLat)*MathPI/2) * Math.sin((loc.lat-userLat)*MathPI/2) + Math.cos(userLat*MathPI) * Math.cos(loc.lat*MathPI) * Math.sin((loc.lon-userLon)*MathPI/2) * Math.sin((loc.lon-userLon)*MathPI/2);
             let dist = R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-            if(dist <= 100) return loc.name; // १०० मीटरच्या आत
+            
+            if(dist <= loc.radius) return loc.name; // गुगल शीटमध्ये दिलेल्या मीटरच्या आत
         }
         return null;
     }
@@ -142,11 +128,10 @@
     function getEAR(eye) { return (getDistance(eye[1], eye[5]) + getDistance(eye[2], eye[4])) / (2.0 * getDistance(eye[0], eye[3])); }
 
     function startLiveness(action) {
-        // ३. लोकेशन इथेच चेक करा (हजेरीच्या वेळी)
         if(action === "mark_attendance") {
             let locName = checkCurrentLocation();
             if(!locName) {
-                showMsg("❌ तुम्ही ड्युटी पॉईंटच्या १०० मीटरच्या बाहेर आहात! (GPS ऑन करा)", "error");
+                showMsg("❌ तुम्ही दिलेल्या ड्युटी पॉईंटच्या मर्यादेत (Radius) नाही आहात! (GPS ऑन करा)", "error");
                 return;
             }
         }
@@ -177,7 +162,7 @@
     function captureExactMoment() {
         let video = document.getElementById('video');
         let canvas = document.createElement('canvas');
-        let scale = 320 / video.videoWidth; // फोटो अजून लहान (३२०px) केला
+        let scale = 320 / video.videoWidth; 
         canvas.width = 320; canvas.height = video.videoHeight * scale;
         canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
         return canvas.toDataURL('image/jpeg', 0.5);
@@ -191,11 +176,6 @@
             showMsg("✅ डोळे मिचकावले! नोंदणी सेव्ह करत आहे...", "info");
             let descStr = JSON.stringify(Array.from(liveDescriptor));
             
-            // मेमरी अपडेट करा
-            let cachedData = JSON.parse(localStorage.getItem("police_" + belt)) || {};
-            cachedData.is_registered = true; cachedData.descriptor = descStr;
-            localStorage.setItem("police_" + belt, JSON.stringify(cachedData));
-
             fetch(GOOGLE_SHEET_URL, { method: 'POST', body: JSON.stringify({action: "register_face", belt_no: belt, image: finalImage, descriptor: descStr}) })
             .then(r => r.json()).then(d => { alert("✅ नोंदणी पूर्ण!"); location.reload(); });
             
@@ -203,19 +183,15 @@
             const distance = faceapi.euclideanDistance(savedDescriptor, liveDescriptor);
             if(distance > 0.55) { showMsg("🚨 चेहरा जुळत नाही! (Proxy Alert)", "error"); document.getElementById('btnAtt').disabled = false; return; }
 
-            // ४. शून्य सेकंद प्रतीक्षा (Zero Wait Time)
-            let finalLocation = checkCurrentLocation(); // फास्ट लोकेशन नाव
+            let finalLocation = checkCurrentLocation(); 
             showMsg("✅ हजेरी यशस्वी!", "info");
             
-            // तात्काळ पॉप-अप! (गुगलची वाट न बघता)
             alert("✅ " + userName + ", तुमची हजेरी यशस्वीरित्या लागली!\n📍 ठिकाण: " + finalLocation);
 
-            // बॅकग्राउंडला गुगल शीटला डेटा पाठवा (User goes back to work)
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST', body: JSON.stringify({action: "mark_attendance", belt_no: belt, lat: userLat, lon: userLon, locName: finalLocation, image: finalImage})
             });
 
-            // १ सेकंदात फॉर्म रिसेट करा पुढच्या जवानासाठी!
             setTimeout(() => { location.reload(); }, 1000);
         }
     }
