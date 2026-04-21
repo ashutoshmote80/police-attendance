@@ -3,48 +3,223 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>LA1 Naigaon - Admin Controlled Hajeri</title>
+    <title>LA1 Naigaon - Premium Hajeri</title>
     <script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;600;700&family=Mukta:wght@400;700&display=swap" rel="stylesheet">
     <style>
-        :root { --p-blue: #002e5b; --p-gold: #f1c40f; --p-green: #27ae60; }
-        body { font-family: sans-serif; background: #f4f7f6; margin: 0; display: flex; flex-direction: column; align-items: center; min-height: 100vh; }
-        .header { background: var(--p-blue); color: white; width: 100%; padding: 15px 0; text-align: center; border-bottom: 4px solid var(--p-gold); margin-bottom: 20px; }
-        .container { background: white; width: 90%; max-width: 400px; padding: 20px; border-radius: 15px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); text-align: center; }
-        input { width: 100%; padding: 12px; margin-bottom: 10px; border: 1px solid #ddd; border-radius: 8px; font-size: 16px; box-sizing: border-box; }
-        button { width: 100%; padding: 12px; border: none; border-radius: 8px; font-weight: bold; color: white; margin-top: 10px; cursor: pointer; transition: 0.2s; }
-        button:active { transform: scale(0.95); }
-        .btn-search { background: var(--p-blue); } .btn-reg { background: #f39c12; } .btn-att { background: var(--p-green); }
-        #aiStatus { font-size: 13px; font-weight: bold; margin-bottom: 15px; padding: 8px; border-radius: 5px; background: #fff3cd; color: #856404; }
-        #video { width: 100%; border-radius: 10px; margin-top: 15px; display: none; background: #000; transform: scaleX(-1); border: 3px solid var(--p-blue); }
-        #msg { margin-top: 10px; font-weight: bold; font-size: 14px; padding: 10px; border-radius: 5px; }
-        .blink-alert { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+        :root {
+            --p-dark: #0a192f;
+            --p-blue: #112240;
+            --p-gold: #ffd700;
+            --p-green: #00ff88;
+            --p-red: #ff3366;
+            --text-light: #ccd6f6;
+            --glass-bg: rgba(17, 34, 64, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.1);
+        }
+
+        body { 
+            font-family: 'Mukta', 'Poppins', sans-serif; 
+            background: linear-gradient(135deg, #020c1b 0%, var(--p-dark) 100%);
+            color: var(--text-light);
+            margin: 0; 
+            display: flex; 
+            flex-direction: column; 
+            align-items: center; 
+            min-height: 100vh; 
+        }
+
+        .header { 
+            background: rgba(10, 25, 47, 0.85);
+            backdrop-filter: blur(10px);
+            width: 100%; 
+            padding: 20px 0; 
+            text-align: center; 
+            border-bottom: 2px solid var(--p-gold); 
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.5);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .header h2 { margin: 0; font-size: 26px; color: white; letter-spacing: 1px; font-weight: 700; text-transform: uppercase; }
+        .header p { margin: 5px 0 0; font-size: 14px; color: var(--p-gold); font-weight: 600; letter-spacing: 2px; }
+
+        .container { 
+            background: var(--glass-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--glass-border);
+            width: 90%; 
+            max-width: 380px; 
+            padding: 30px 25px; 
+            border-radius: 20px; 
+            margin-top: 30px; 
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            text-align: center; 
+        }
+
+        input { 
+            width: 100%; 
+            padding: 15px; 
+            margin-bottom: 15px; 
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--glass-border); 
+            border-radius: 12px; 
+            font-size: 18px; 
+            color: white;
+            box-sizing: border-box; 
+            text-align: center;
+            font-weight: 600;
+            letter-spacing: 2px;
+            transition: all 0.3s ease;
+        }
+        
+        input:focus {
+            outline: none;
+            border-color: var(--p-gold);
+            background: rgba(255, 255, 255, 0.1);
+            box-shadow: 0 0 15px rgba(255, 215, 0, 0.2);
+        }
+
+        input::placeholder { color: rgba(204, 214, 246, 0.5); letter-spacing: 0; font-weight: 400; }
+
+        button { 
+            width: 100%; 
+            padding: 15px; 
+            border: none; 
+            border-radius: 12px; 
+            font-size: 18px; 
+            font-weight: 700; 
+            color: var(--p-dark); 
+            margin-top: 10px; 
+            cursor: pointer; 
+            transition: all 0.3s ease; 
+            text-transform: uppercase;
+            letter-spacing: 1px;
+        }
+
+        button:active { transform: scale(0.96); }
+        button:disabled { opacity: 0.5; cursor: not-allowed; }
+
+        .btn-search { background: var(--p-gold); box-shadow: 0 4px 15px rgba(255, 215, 0, 0.3); }
+        .btn-search:hover { background: #ffe033; box-shadow: 0 6px 20px rgba(255, 215, 0, 0.4); }
+        
+        .btn-reg { background: linear-gradient(45deg, #FF512F 0%, #F09819 100%); color: white; box-shadow: 0 4px 15px rgba(240, 152, 25, 0.4); }
+        .btn-att { background: linear-gradient(45deg, #11998e 0%, #38ef7d 100%); color: white; box-shadow: 0 4px 15px rgba(56, 239, 125, 0.4); }
+
+        #aiStatus { 
+            font-size: 13px; 
+            font-weight: 700; 
+            margin-bottom: 20px; 
+            padding: 10px; 
+            border-radius: 8px; 
+            background: rgba(255, 215, 0, 0.1); 
+            color: var(--p-gold); 
+            border: 1px solid rgba(255, 215, 0, 0.2);
+            letter-spacing: 1px;
+        }
+
+        .video-wrapper {
+            position: relative;
+            margin-top: 20px;
+            border-radius: 15px;
+            padding: 4px;
+            background: linear-gradient(45deg, var(--p-gold), transparent, var(--p-green));
+            display: none;
+            animation: pulse-border 2s infinite;
+        }
+
+        @keyframes pulse-border {
+            0% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0.4); }
+            70% { box-shadow: 0 0 0 10px rgba(255, 215, 0, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 215, 0, 0); }
+        }
+
+        #video { 
+            width: 100%; 
+            border-radius: 12px; 
+            background: #000; 
+            transform: scaleX(-1); 
+            display: block;
+        }
+
+        #msg { 
+            margin-top: 15px; 
+            font-weight: 600; 
+            font-size: 15px; 
+            padding: 12px; 
+            border-radius: 10px; 
+            transition: all 0.3s ease;
+        }
+
+        .msg-info { background: rgba(0, 255, 136, 0.1); color: var(--p-green); border: 1px solid rgba(0, 255, 136, 0.2); }
+        .msg-error { background: rgba(255, 51, 102, 0.1); color: var(--p-red); border: 1px solid rgba(255, 51, 102, 0.2); }
+        .blink-alert { background: rgba(255, 215, 0, 0.15); color: var(--p-gold); border: 1px solid var(--p-gold); animation: blink 1s infinite; }
+
+        @keyframes blink { 50% { opacity: 0.7; } }
+
+        /* Scanning Line Effect */
+        .scan-line {
+            position: absolute;
+            width: 100%;
+            height: 2px;
+            background: var(--p-green);
+            box-shadow: 0 0 10px var(--p-green);
+            top: 0;
+            left: 0;
+            animation: scan 2s linear infinite;
+            display: none;
+            z-index: 10;
+        }
+
+        @keyframes scan {
+            0% { top: 0; opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { top: 100%; opacity: 0; }
+        }
+        
+        .footer {
+            margin-top: auto;
+            padding: 20px;
+            font-size: 12px;
+            color: rgba(204, 214, 246, 0.5);
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
 
 <div class="header">
-    <h2>LA1 Naigaon Mumbai</h2>
-    <p>डायनॅमिक ड्युटी पॉईंट हजेरी</p>
+    <h2>LA1 Naigaon</h2>
+    <p>Mumbai Police • Smart Attendance</p>
 </div>
 
 <div class="container">
-    <div id="aiStatus">🤖 AI लोड होत आहे...</div>
+    <div id="aiStatus">🤖 AI System Loading...</div>
     
-    <input type="text" id="beltNo" placeholder="बकल नंबर टाका">
-    <button id="btnSearch" class="btn-search" onclick="checkBelt()" disabled>ओळख पटवा</button>
+    <input type="text" id="beltNo" placeholder="Enter Belt No. (उदा. 190055)">
+    <button id="btnSearch" class="btn-search" onclick="checkBelt()" disabled>ओळख पटवा (Verify)</button>
     
-    <div id="msg"></div>
-    <video id="video" autoplay playsinline muted></video>
+    <div id="msg" style="display:none;"></div>
+    
+    <div class="video-wrapper" id="vidWrapper">
+        <div class="scan-line" id="scanLine"></div>
+        <video id="video" autoplay playsinline muted></video>
+    </div>
     
     <button id="btnReg" class="btn-reg" style="display:none;" onclick="startLiveness('register_face')">चेहरा नोंदणी करा</button>
-    <button id="btnAtt" class="btn-att" style="display:none;" onclick="startLiveness('mark_attendance')">हजेरी लावा</button>
+    <button id="btnAtt" class="btn-att" style="display:none;" onclick="startLiveness('mark_attendance')">हजेरी लावा (Mark Present)</button>
 </div>
+
+<div class="footer">Secure Cloud System • Ver 2.0</div>
 
 <script>
     const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyoz258DfJgM5KGa1Il8HGJ79nEmlrszX6dL6npHN4DpLHUL1d0-RpeZoCcY-rT1Htt/exec";
     const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
     
-    let DYNAMIC_LOCATIONS = []; // गुगल शीटमधून आलेले लोकेशन्स इथे राहतील
+    let DYNAMIC_LOCATIONS = []; 
     let savedDescriptor = null;
     let userLat = "0", userLon = "0";
     let isCheckingLiveness = false;
@@ -61,38 +236,44 @@
             faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
         ]).then(() => {
             let st = document.getElementById('aiStatus');
-            st.innerText = "✅ सिस्टीम १ सेकंदात हजेरीसाठी तयार!"; st.style.background = "#d4edda"; st.style.color = "#155724";
+            st.innerHTML = "✨ System Ready for Scan"; 
+            st.style.color = "var(--p-green)";
+            st.style.background = "rgba(0, 255, 136, 0.1)";
+            st.style.borderColor = "rgba(0, 255, 136, 0.2)";
             document.getElementById('btnSearch').disabled = false;
         });
     };
 
     function showMsg(text, type="info") {
-        let m = document.getElementById('msg'); m.innerText = text;
-        if(type === "alert") m.className = "blink-alert"; 
-        else { m.className = ""; m.style.color = (type==="error"?"red":"blue"); }
+        let m = document.getElementById('msg'); 
+        m.style.display = "block";
+        m.innerText = text;
+        m.className = (type === "alert") ? "blink-alert" : (type === "error" ? "msg-error" : "msg-info");
     }
 
     function checkBelt() {
         let belt = document.getElementById('beltNo').value.trim();
-        if(!belt) return alert("बकल नंबर टाका");
+        if(!belt) { showMsg("कृपया बकल नंबर टाका", "error"); return; }
 
-        // आपण इथे मेमरी क्लिअर करत आहोत जेणेकरून शीटमधील नवीन लोकेशन्स नेहमी ताजे (Fresh) मिळतील
-        showMsg("गुगल शीटमधून ड्युटी पॉईंट्स आणि डेटा तपासत आहे...", "blue");
+        showMsg("Secure Connection... Fetching Data", "info");
         document.getElementById('btnSearch').disabled = true;
 
         fetch(GOOGLE_SHEET_URL, { method: 'POST', body: JSON.stringify({action: "verify_belt", belt_no: belt}) })
         .then(r => r.json()).then(data => {
             document.getElementById('btnSearch').disabled = false;
             if(data.status === 'success') {
-                DYNAMIC_LOCATIONS = data.locations || []; // गुगल शीटचे लोकेशन्स सेव्ह केले
+                DYNAMIC_LOCATIONS = data.locations || []; 
                 processUserData(data);
-            } else { showMsg(data.message, "error"); }
+            } else { showMsg("❌ " + data.message, "error"); }
+        }).catch(e => {
+            showMsg("Network Error. Retrying...", "error");
+            document.getElementById('btnSearch').disabled = false;
         });
     }
 
     function processUserData(data) {
         userName = data.name;
-        showMsg("स्वागत आहे, " + userName, "info");
+        showMsg("स्वागत आहे (Welcome), " + userName, "info");
         startCam();
         if(data.is_registered && data.descriptor) {
             savedDescriptor = new Float32Array(JSON.parse(data.descriptor));
@@ -105,21 +286,19 @@
     }
 
     function startCam() {
-        document.getElementById('video').style.display = "block";
+        document.getElementById('vidWrapper').style.display = "block";
         navigator.mediaDevices.getUserMedia({video: {facingMode: "user"}}).then(s => { document.getElementById('video').srcObject = s; });
         navigator.geolocation.getCurrentPosition(p => { userLat = p.coords.latitude; userLon = p.coords.longitude; });
     }
 
-    // लोकेशन मोजण्याचे सूत्र (गुगल शीटच्या Radius नुसार)
     function checkCurrentLocation() {
-        if(DYNAMIC_LOCATIONS.length === 0) return "Unknown (No Locations in Sheet)";
+        if(DYNAMIC_LOCATIONS.length === 0) return "Unknown (No Data)";
         const R = 6371e3; const MathPI = Math.PI/180;
         
         for(let loc of DYNAMIC_LOCATIONS) {
             let a = Math.sin((loc.lat-userLat)*MathPI/2) * Math.sin((loc.lat-userLat)*MathPI/2) + Math.cos(userLat*MathPI) * Math.cos(loc.lat*MathPI) * Math.sin((loc.lon-userLon)*MathPI/2) * Math.sin((loc.lon-userLon)*MathPI/2);
             let dist = R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-            
-            if(dist <= loc.radius) return loc.name; // गुगल शीटमध्ये दिलेल्या मीटरच्या आत
+            if(dist <= loc.radius) return loc.name; 
         }
         return null;
     }
@@ -131,16 +310,16 @@
         if(action === "mark_attendance") {
             let locName = checkCurrentLocation();
             if(!locName) {
-                showMsg("❌ तुम्ही दिलेल्या ड्युटी पॉईंटच्या मर्यादेत (Radius) नाही आहात! (GPS ऑन करा)", "error");
+                showMsg("❌ Location Mismatch. ड्युटी पॉईंटच्या बाहेर आहात.", "error");
                 return;
             }
         }
 
         pendingAction = action; isCheckingLiveness = true; hasBlinked = false;
         document.getElementById('btnReg').disabled = true; document.getElementById('btnAtt').disabled = true;
-        document.getElementById('video').style.borderColor = "#e74c3c";
         
-        showMsg("👁️ कृपया हजेरीसाठी 'डोळे मिचकावा'", "alert");
+        document.getElementById('scanLine').style.display = "block"; // Start Scan Anim
+        showMsg("👁️ Live Scan: कृपया डोळे मिचकावा (Blink Eyes)", "alert");
         detectLivenessLoop();
     }
 
@@ -151,7 +330,8 @@
             if(detection) {
                 if (getEAR(detection.landmarks.getLeftEye()) < 0.25) hasBlinked = true;
                 else if (hasBlinked && getEAR(detection.landmarks.getLeftEye()) > 0.28) {
-                    isCheckingLiveness = false; document.getElementById('video').style.borderColor = "#27ae60"; 
+                    isCheckingLiveness = false; 
+                    document.getElementById('scanLine').style.display = "none"; // Stop Scan Anim
                     executeFinalAction(detection.descriptor); return;
                 }
             }
@@ -173,20 +353,20 @@
         let belt = document.getElementById('beltNo').value;
 
         if (pendingAction === "register_face") {
-            showMsg("✅ डोळे मिचकावले! नोंदणी सेव्ह करत आहे...", "info");
+            showMsg("✅ Scan Complete. Uploading Data...", "info");
             let descStr = JSON.stringify(Array.from(liveDescriptor));
             
             fetch(GOOGLE_SHEET_URL, { method: 'POST', body: JSON.stringify({action: "register_face", belt_no: belt, image: finalImage, descriptor: descStr}) })
-            .then(r => r.json()).then(d => { alert("✅ नोंदणी पूर्ण!"); location.reload(); });
+            .then(r => r.json()).then(d => { alert("✅ नोंदणी पूर्ण (Registration Successful)!"); location.reload(); });
             
         } else if (pendingAction === "mark_attendance") {
             const distance = faceapi.euclideanDistance(savedDescriptor, liveDescriptor);
-            if(distance > 0.55) { showMsg("🚨 चेहरा जुळत नाही! (Proxy Alert)", "error"); document.getElementById('btnAtt').disabled = false; return; }
+            if(distance > 0.55) { showMsg("🚨 Identity mismatch. (Proxy Alert)", "error"); document.getElementById('btnAtt').disabled = false; return; }
 
             let finalLocation = checkCurrentLocation(); 
-            showMsg("✅ हजेरी यशस्वी!", "info");
+            showMsg("✅ Attendance Marked!", "info");
             
-            alert("✅ " + userName + ", तुमची हजेरी यशस्वीरित्या लागली!\n📍 ठिकाण: " + finalLocation);
+            alert("✅ " + userName + "\nहजेरी यशस्वीरित्या लागली!\n📍 ठिकाण: " + finalLocation);
 
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST', body: JSON.stringify({action: "mark_attendance", belt_no: belt, lat: userLat, lon: userLon, locName: finalLocation, image: finalImage})
