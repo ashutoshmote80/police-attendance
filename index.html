@@ -214,138 +214,26 @@
 </div>
 
 <div class="footer">Secure Cloud System • Ver 2.0</div>
-
 <script>
-    const GOOGLE_SHEET_URL = "https://script.google.com/macros/s/AKfycbyoz258DfJgM5KGa1Il8HGJ79nEmlrszX6dL6npHN4DpLHUL1d0-RpeZoCcY-rT1Htt/exec";
-    const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/';
-    
-    let DYNAMIC_LOCATIONS = []; 
-    let savedDescriptor = null;
-    let userLat = "0", userLon = "0";
-    let isCheckingLiveness = false;
-    let hasBlinked = false;
-    let pendingAction = "";
-    let userName = "";
+    // [वरचा तुमचा जुना CSS आणि HTML कोड तसाच ठेवा]
 
-    const aiOptions = new faceapi.TinyFaceDetectorOptions({ scoreThreshold: 0.25, inputSize: 320 });
+    // ... जुना सर्व कोड ...
 
-    window.onload = function() {
-        Promise.all([
-            faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL),
-            faceapi.nets.faceLandmark68Net.loadFromUri(MODEL_URL),
-            faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL)
-        ]).then(() => {
-            let st = document.getElementById('aiStatus');
-            st.innerHTML = "✨ System Ready for Scan"; 
-            st.style.color = "var(--p-green)";
-            st.style.background = "rgba(0, 255, 136, 0.1)";
-            st.style.borderColor = "rgba(0, 255, 136, 0.2)";
-            document.getElementById('btnSearch').disabled = false;
-        });
-    };
-
-    function showMsg(text, type="info") {
-        let m = document.getElementById('msg'); 
-        m.style.display = "block";
-        m.innerText = text;
-        m.className = (type === "alert") ? "blink-alert" : (type === "error" ? "msg-error" : "msg-info");
-    }
-
-    function checkBelt() {
-        let belt = document.getElementById('beltNo').value.trim();
-        if(!belt) { showMsg("कृपया बकल नंबर टाका", "error"); return; }
-
-        showMsg("Secure Connection... Fetching Data", "info");
-        document.getElementById('btnSearch').disabled = true;
-
-        fetch(GOOGLE_SHEET_URL, { method: 'POST', body: JSON.stringify({action: "verify_belt", belt_no: belt}) })
-        .then(r => r.json()).then(data => {
-            document.getElementById('btnSearch').disabled = false;
-            if(data.status === 'success') {
-                DYNAMIC_LOCATIONS = data.locations || []; 
-                processUserData(data);
-            } else { showMsg("❌ " + data.message, "error"); }
-        }).catch(e => {
-            showMsg("Network Error. Retrying...", "error");
-            document.getElementById('btnSearch').disabled = false;
-        });
-    }
-
-    function processUserData(data) {
-        userName = data.name;
-        showMsg("स्वागत आहे (Welcome), " + userName, "info");
-        startCam();
-        if(data.is_registered && data.descriptor) {
-            savedDescriptor = new Float32Array(JSON.parse(data.descriptor));
-            document.getElementById('btnAtt').style.display = "block";
-            document.getElementById('btnReg').style.display = "none";
-        } else {
-            document.getElementById('btnReg').style.display = "block";
-            document.getElementById('btnAtt').style.display = "none";
-        }
-    }
-
-    function startCam() {
-        document.getElementById('vidWrapper').style.display = "block";
-        navigator.mediaDevices.getUserMedia({video: {facingMode: "user"}}).then(s => { document.getElementById('video').srcObject = s; });
-        navigator.geolocation.getCurrentPosition(p => { userLat = p.coords.latitude; userLon = p.coords.longitude; });
-    }
-
-    function checkCurrentLocation() {
-        if(DYNAMIC_LOCATIONS.length === 0) return "Unknown (No Data)";
-        const R = 6371e3; const MathPI = Math.PI/180;
-        
-        for(let loc of DYNAMIC_LOCATIONS) {
-            let a = Math.sin((loc.lat-userLat)*MathPI/2) * Math.sin((loc.lat-userLat)*MathPI/2) + Math.cos(userLat*MathPI) * Math.cos(loc.lat*MathPI) * Math.sin((loc.lon-userLon)*MathPI/2) * Math.sin((loc.lon-userLon)*MathPI/2);
-            let dist = R * (2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a)));
-            if(dist <= loc.radius) return loc.name; 
-        }
-        return null;
-    }
-
-    function getDistance(p1, p2) { return Math.sqrt(Math.pow(p1.x - p2.x, 2) + Math.pow(p1.y - p2.y, 2)); }
-    function getEAR(eye) { return (getDistance(eye[1], eye[5]) + getDistance(eye[2], eye[4])) / (2.0 * getDistance(eye[0], eye[3])); }
-
-    function startLiveness(action) {
-        if(action === "mark_attendance") {
-            let locName = checkCurrentLocation();
-            if(!locName) {
-                showMsg("❌ Location Mismatch. ड्युटी पॉईंटच्या बाहेर आहात.", "error");
-                return;
-            }
-        }
-
-        pendingAction = action; isCheckingLiveness = true; hasBlinked = false;
-        document.getElementById('btnReg').disabled = true; document.getElementById('btnAtt').disabled = true;
-        
-        document.getElementById('scanLine').style.display = "block"; // Start Scan Anim
-        showMsg("👁️ Live Scan: कृपया डोळे मिचकावा (Blink Eyes)", "alert");
-        detectLivenessLoop();
-    }
-
-    async function detectLivenessLoop() {
-        if(!isCheckingLiveness) return;
-        try {
-            const detection = await faceapi.detectSingleFace(document.getElementById('video'), aiOptions).withFaceLandmarks().withFaceDescriptor();
-            if(detection) {
-                if (getEAR(detection.landmarks.getLeftEye()) < 0.25) hasBlinked = true;
-                else if (hasBlinked && getEAR(detection.landmarks.getLeftEye()) > 0.28) {
-                    isCheckingLiveness = false; 
-                    document.getElementById('scanLine').style.display = "none"; // Stop Scan Anim
-                    executeFinalAction(detection.descriptor); return;
-                }
-            }
-        } catch(e) {}
-        setTimeout(detectLivenessLoop, 150);
-    }
-
+    // 🔥 अल्ट्रा-कॉम्प्रेसर (६० KB लिमिट)
     function captureExactMoment() {
         let video = document.getElementById('video');
         let canvas = document.createElement('canvas');
-        let scale = 320 / video.videoWidth; 
-        canvas.width = 320; canvas.height = video.videoHeight * scale;
+        
+        // फोटोची रुंदी 240px केली आहे (यामुळे फोटो एकदम लहान आणि 60KB च्या आत होईल)
+        let MAX_WIDTH = 240; 
+        let scale = MAX_WIDTH / video.videoWidth; 
+        canvas.width = MAX_WIDTH; 
+        canvas.height = video.videoHeight * scale;
+        
         canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-        return canvas.toDataURL('image/jpeg', 0.5);
+        
+        // Quality 0.4 (40%) केली आहे, जी ओळख पटवण्यासाठी पुरेशी आहे पण साईझ खूप कमी करते
+        return canvas.toDataURL('image/jpeg', 0.4);
     }
 
     async function executeFinalAction(liveDescriptor) {
@@ -357,22 +245,29 @@
             let descStr = JSON.stringify(Array.from(liveDescriptor));
             
             fetch(GOOGLE_SHEET_URL, { method: 'POST', body: JSON.stringify({action: "register_face", belt_no: belt, image: finalImage, descriptor: descStr}) })
-            .then(r => r.json()).then(d => { alert("✅ नोंदणी पूर्ण (Registration Successful)!"); location.reload(); });
+            .then(r => r.json()).then(d => { alert("✅ नोंदणी पूर्ण!"); location.reload(); });
             
         } else if (pendingAction === "mark_attendance") {
             const distance = faceapi.euclideanDistance(savedDescriptor, liveDescriptor);
             if(distance > 0.55) { showMsg("🚨 Identity mismatch. (Proxy Alert)", "error"); document.getElementById('btnAtt').disabled = false; return; }
 
             let finalLocation = checkCurrentLocation(); 
-            showMsg("✅ Attendance Marked!", "info");
-            
-            alert("✅ " + userName + "\nहजेरी यशस्वीरित्या लागली!\n📍 ठिकाण: " + finalLocation);
+            showMsg("✅ Attendance Processing...", "info");
 
+            // बॅकग्राउंडला रिक्वेस्ट पाठवली
             fetch(GOOGLE_SHEET_URL, {
                 method: 'POST', body: JSON.stringify({action: "mark_attendance", belt_no: belt, lat: userLat, lon: userLon, locName: finalLocation, image: finalImage})
+            }).then(r => r.json()).then(d => {
+                if(d.status === 'success') {
+                    // सिस्टीम बॅकएंडवरून सांगेल की हे Check-In आहे की Check-Out
+                    alert("✅ " + userName + "\n📍 ठिकाण: " + finalLocation + "\n\n" + d.message); 
+                    location.reload();
+                } else {
+                    // जर तिसऱ्यांदा हजेरी लावायचा प्रयत्न केला तर एरर देईल
+                    alert("❌ " + d.message);
+                    location.reload();
+                }
             });
-
-            setTimeout(() => { location.reload(); }, 1000);
         }
     }
 </script>
